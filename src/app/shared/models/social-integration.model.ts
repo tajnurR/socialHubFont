@@ -1,6 +1,6 @@
 import { SocialPlatform } from './social-platform.model';
 
-export type IntegrationStatus = 'CONNECTED' | 'ERROR' | 'DISCONNECTED';
+export type IntegrationStatus = 'CONNECTED' | 'REAUTH_REQUIRED' | 'ERROR' | 'DISCONNECTED';
 
 /** Mirrors the backend `IntegrationResponse` (token is masked, never the real value). */
 export interface SocialIntegration {
@@ -10,7 +10,23 @@ export interface SocialIntegration {
   displayName?: string | null;
   status: IntegrationStatus;
   accessTokenMasked: string;
+  tokenType?: string | null;
+  tokenObtainedAt?: string | null;
+  tokenExpiresAt?: string | null;
   createdAt: string;
+}
+
+/** A Facebook Page the user can choose to connect (from the OAuth exchange). */
+export interface FacebookPageOption {
+  id: string;
+  name: string;
+}
+
+/** Mirrors the backend Facebook OAuth exchange response. */
+export interface FacebookExchangeResult {
+  exchangeId: string;
+  pages: FacebookPageOption[];
+  userTokenExpiresAt?: string | null;
 }
 
 /** Mirrors the backend `ConnectIntegrationRequest`. Credentials are platform-specific. */

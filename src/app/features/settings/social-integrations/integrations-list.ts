@@ -1,9 +1,12 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { ConfirmService } from '../../../core/services/confirm.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { PageHeader } from '../../../shared/components/page-header/page-header';
 import { SocialIntegration } from '../../../shared/models/social-integration.model';
+import { FacebookAuthService } from './facebook-auth.service';
 import { SocialIntegrationsService } from './social-integrations.service';
 
 /** Lists connected integrations with actions: view posts, disconnect, add new. */
@@ -40,20 +43,34 @@ import { SocialIntegrationsService } from './social-integrations.service';
                 <p class="text-xs text-slate-400">{{ it.platform }} · {{ it.externalAccountId }}</p>
                 <p class="mt-1 text-xs text-slate-400">Token {{ it.accessTokenMasked }}</p>
               </div>
-              <span
-                class="rounded-full px-2 py-1 text-xs font-medium"
-                [class]="it.status === 'CONNECTED' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'"
-              >
-                {{ it.status }}
+              <span class="rounded-full px-2 py-1 text-xs font-medium" [class]="statusClass(it.status)">
+                {{ it.status === 'REAUTH_REQUIRED' ? 'Reconnect needed' : it.status }}
               </span>
             </div>
-            <div class="mt-4 flex gap-2">
+
+            @if (it.status === 'REAUTH_REQUIRED') {
+              <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                Facebook rejected the stored token. Reconnect to restore access.
+              </p>
+            }
+
+            <div class="mt-4 flex flex-wrap gap-2">
               <a
                 [routerLink]="[it.id, 'posts']"
                 class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 View posts
               </a>
+              @if (it.platform === 'FACEBOOK') {
+                <button
+                  type="button"
+                  [disabled]="busyId() === it.id"
+                  class="rounded-lg bg-[#1877F2] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#166fe0] disabled:opacity-60"
+                  (click)="reconnect(it)"
+                >
+                  {{ busyId() === it.id ? 'Reconnecting…' : 'Reconnect' }}
+                </button>
+              }
               <button
                 type="button"
                 class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
@@ -74,15 +91,54 @@ import { SocialIntegrationsService } from './social-integrations.service';
 })
 export class IntegrationsList implements OnInit {
   private readonly service = inject(SocialIntegrationsService);
+  private readonly facebookAuth = inject(FacebookAuthService);
   private readonly notifications = inject(NotificationService);
   private readonly confirm = inject(ConfirmService);
 
   protected readonly integrations = signal<SocialIntegration[]>([]);
   protected readonly loading = signal(true);
   protected readonly error = signal<string | null>(null);
+  protected readonly busyId = signal<number | null>(null);
 
   ngOnInit(): void {
     this.load();
+  }
+
+  protected statusClass(status: string): string {
+    switch (status) {
+      case 'CONNECTED':
+        return 'bg-emerald-50 text-emerald-700';
+      case 'REAUTH_REQUIRED':
+        return 'bg-amber-50 text-amber-700';
+      default:
+        return 'bg-red-50 text-red-700';
+    }
+  }
+
+  /** Re-runs the Facebook OAuth popup and replaces the stored token in place. */
+  protected async reconnect(integration: SocialIntegration): Promise<void> {
+    this.busyId.set(integration.id);
+    try {
+      const shortLivedToken = await this.facebookAuth.login();
+      const exchange = await firstValueFrom(this.service.facebookExchange(shortLivedToken));
+      await firstValueFrom(this.service.reauth(integration.id, exchange.exchangeId));
+      this.notifications.success('Integration reconnected');
+      this.load();
+    } catch (err) {
+      this.notifications.error(this.errorMessage(err));
+    } finally {
+      this.busyId.set(null);
+    }
+  }
+
+  private errorMessage(err: unknown): string {
+    if (err instanceof HttpErrorResponse) {
+      return err.error?.message ?? 'Could not reconnect the integration';
+    }
+    if (err instanceof Error) {
+      return err.message;
+    }
+    return 'Could not reconnect the integration';
   }
 
   private load(): void {

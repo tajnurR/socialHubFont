@@ -6,6 +6,7 @@ import {
   ConnectIntegrationRequest,
   CreatePostRequest,
   CreatePostResponse,
+  FacebookExchangeResult,
   IntegrationPostPage,
   SocialIntegration,
 } from '../../../shared/models/social-integration.model';
@@ -44,6 +45,30 @@ export class SocialIntegrationsService {
 
   createPost(id: number, body: CreatePostRequest): Observable<CreatePostResponse> {
     return this.api.post<CreatePostResponse>(ApiEndpoint.INTEGRATION_POSTS, body, {
+      pathParams: { id },
+    });
+  }
+
+  // --- Facebook OAuth flow ---
+
+  /** Send the short-lived FB user token; get back selectable pages. */
+  facebookExchange(shortLivedToken: string): Observable<FacebookExchangeResult> {
+    return this.api.post<FacebookExchangeResult>(ApiEndpoint.FACEBOOK_OAUTH_EXCHANGE, {
+      shortLivedToken,
+    });
+  }
+
+  /** Persist a chosen page from a prior exchange. */
+  facebookConnect(exchangeId: string, pageId: string): Observable<SocialIntegration> {
+    return this.api.post<SocialIntegration>(ApiEndpoint.FACEBOOK_OAUTH_CONNECT, {
+      exchangeId,
+      pageId,
+    });
+  }
+
+  /** Replace an existing integration's token in place using a fresh exchange. */
+  reauth(id: number, exchangeId: string): Observable<SocialIntegration> {
+    return this.api.post<SocialIntegration>(ApiEndpoint.INTEGRATION_REAUTH, { exchangeId }, {
       pathParams: { id },
     });
   }

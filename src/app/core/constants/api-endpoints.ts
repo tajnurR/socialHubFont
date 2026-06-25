@@ -18,6 +18,9 @@ export enum ApiEndpoint {
   INTEGRATIONS = '/integrations',
   INTEGRATION_BY_ID = '/integrations/:id',
   INTEGRATION_POSTS = '/integrations/:id/posts',
+  INTEGRATION_REAUTH = '/integrations/:id/reauth',
+  FACEBOOK_OAUTH_EXCHANGE = '/integrations/facebook/oauth/exchange',
+  FACEBOOK_OAUTH_CONNECT = '/integrations/facebook/connect',
 
   // --- Analytics ---
   ANALYTICS_SUMMARY = '/analytics/summary',
