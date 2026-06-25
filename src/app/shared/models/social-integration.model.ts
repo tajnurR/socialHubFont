@@ -60,3 +60,10 @@ export interface IntegrationPostPage {
 export interface CreatePostResponse {
   externalPostId: string;
 }
+
+/** Per-org Facebook app credential status (secret never returned, only masked). */
+export interface FacebookCredentialStatus {
+  configured: boolean;
+  appId?: string | null;
+  appSecretMasked?: string | null;
+}

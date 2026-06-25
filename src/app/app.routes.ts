@@ -30,7 +30,7 @@ export const routes: Routes = [
       },
       {
         path: 'facebook',
-        loadComponent: () => import('./features/facebook/facebook').then((m) => m.Facebook),
+        loadChildren: () => import('./features/facebook/facebook.routes').then((m) => m.FACEBOOK_ROUTES),
       },
       {
         path: 'instagram',

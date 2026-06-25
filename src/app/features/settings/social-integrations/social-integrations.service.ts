@@ -6,6 +6,7 @@ import {
   ConnectIntegrationRequest,
   CreatePostRequest,
   CreatePostResponse,
+  FacebookCredentialStatus,
   FacebookExchangeResult,
   IntegrationPostPage,
   SocialIntegration,
@@ -50,6 +51,19 @@ export class SocialIntegrationsService {
   }
 
   // --- Facebook OAuth flow ---
+
+  /** Per-org Facebook app credential status (configured? + masked hint). */
+  facebookCredentialStatus(): Observable<FacebookCredentialStatus> {
+    return this.api.get<FacebookCredentialStatus>(ApiEndpoint.FACEBOOK_CREDENTIALS);
+  }
+
+  /** Validate + store the org's Facebook app credentials. */
+  saveFacebookCredentials(appId: string, appSecret: string): Observable<FacebookCredentialStatus> {
+    return this.api.post<FacebookCredentialStatus>(ApiEndpoint.FACEBOOK_CREDENTIALS, {
+      appId,
+      appSecret,
+    });
+  }
 
   /** Send the short-lived FB user token; get back selectable pages. */
   facebookExchange(shortLivedToken: string): Observable<FacebookExchangeResult> {

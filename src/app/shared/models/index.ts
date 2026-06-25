@@ -5,3 +5,4 @@ export * from './organization.model';
 export * from './post.model';
 export * from './analytics.model';
 export * from './social-integration.model';
+export * from './facebook-analytics.model';
