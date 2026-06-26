@@ -5,9 +5,9 @@ import { ErrorResponse } from '../../shared/models/api-response.model';
 import { AuthService } from '../services/auth.service';
 
 /**
- * Centralized HTTP error handling. Logs a normalized message and re-throws so
- * callers can still react. Extend with toast notifications / global error state
- * as needed.
+ * Centralized HTTP error handling. On 401 for a protected request, clears the
+ * session and redirects to login (skips auth endpoints so a bad-login 401 stays
+ * on the login page). Logs a normalized message and re-throws.
  */
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
   const auth = inject(AuthService);
@@ -17,8 +17,8 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
       const body = error.error as Partial<ErrorResponse> | null;
       const message = body?.message ?? error.message ?? 'Unexpected error';
 
-      if (error.status === 401) {
-        // TODO[SSO]: trigger re-authentication / redirect to login.
+      const isAuthEndpoint = req.url.includes('/auth/');
+      if (error.status === 401 && !isAuthEndpoint) {
         auth.logout();
       }
 

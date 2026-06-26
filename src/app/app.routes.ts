@@ -11,6 +11,14 @@ import { MainLayout } from './layout/main-layout/main-layout';
  */
 export const routes: Routes = [
   {
+    path: 'login',
+    loadComponent: () => import('./features/auth/login').then((m) => m.Login),
+  },
+  {
+    path: 'register',
+    loadComponent: () => import('./features/auth/register').then((m) => m.Register),
+  },
+  {
     path: '',
     component: MainLayout,
     canActivate: [authGuard],

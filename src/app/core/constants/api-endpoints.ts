@@ -9,6 +9,13 @@
  * through this enum — never as inline strings.
  */
 export enum ApiEndpoint {
+  // --- Auth ---
+  AUTH_LOGIN = '/auth/login',
+  AUTH_REGISTER = '/auth/register',
+  AUTH_REFRESH = '/auth/refresh',
+  AUTH_LOGOUT = '/auth/logout',
+  AUTH_ME = '/auth/me',
+
   // --- Tenant / organizations ---
   ORGANIZATIONS = '/organizations',
   ORGANIZATION_BY_ID = '/organizations/:id',
