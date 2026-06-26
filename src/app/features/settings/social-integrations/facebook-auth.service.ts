@@ -20,32 +20,29 @@ interface FbLoginResponse {
 /**
  * Encapsulates the Facebook Login popup via the FB JS SDK.
  *
- * We use the SDK's `FB.login` (which opens Facebook's popup) and take the
- * short-lived **user** access token from the auth response, then hand it to the
- * backend to exchange for a long-lived token + Page tokens. We chose the SDK
- * popup over a server-side redirect flow because it needs no redirect/callback
- * endpoint or `state` handling, while the app secret still stays server-side
- * (the backend performs the token exchange).
+ * The popup is initialized with the **current user's own App ID** (passed in by
+ * the caller, sourced from that user's stored credentials) — there is no global
+ * app id. We take the short-lived user token from the auth response and hand it
+ * to the backend, which exchanges it using that user's app secret (server-side).
  *
  * Kept inside the Facebook feature so other platforms add their own auth later.
  */
 @Injectable({ providedIn: 'root' })
 export class FacebookAuthService {
-  private sdkPromise?: Promise<void>;
+  private scriptPromise?: Promise<void>;
+  private initializedAppId?: string;
   private readonly scope =
     'pages_show_list,pages_read_engagement,pages_manage_posts,pages_read_user_content';
 
-  /** Whether an App ID is configured (controls showing the OAuth button). */
-  get configured(): boolean {
-    return !!environment.facebook.appId;
-  }
-
-  /** Opens the Facebook login popup; resolves with a short-lived user access token. */
-  async login(): Promise<string> {
-    if (!this.configured) {
-      throw new Error('Facebook App ID is not configured (set environment.facebook.appId).');
+  /**
+   * Opens the Facebook login popup for the given (per-user) App ID; resolves with
+   * a short-lived user access token.
+   */
+  async login(appId: string): Promise<string> {
+    if (!appId) {
+      throw new Error('No Facebook App ID for your account — save your app credentials first.');
     }
-    await this.loadSdk();
+    await this.ensureInitialized(appId);
     const fb = window.FB!;
     return new Promise<string>((resolve, reject) => {
       fb.login(
@@ -62,24 +59,30 @@ export class FacebookAuthService {
     });
   }
 
-  private loadSdk(): Promise<void> {
-    if (this.sdkPromise) {
-      return this.sdkPromise;
+  /** Loads the SDK once, then (re)inits with the given app id if it changed. */
+  private async ensureInitialized(appId: string): Promise<void> {
+    await this.loadScript();
+    if (this.initializedAppId !== appId) {
+      window.FB!.init({
+        appId,
+        cookie: false,
+        xfbml: false,
+        version: environment.facebook.apiVersion,
+      });
+      this.initializedAppId = appId;
     }
-    this.sdkPromise = new Promise<void>((resolve, reject) => {
+  }
+
+  private loadScript(): Promise<void> {
+    if (this.scriptPromise) {
+      return this.scriptPromise;
+    }
+    this.scriptPromise = new Promise<void>((resolve, reject) => {
       if (window.FB) {
         resolve();
         return;
       }
-      window.fbAsyncInit = () => {
-        window.FB!.init({
-          appId: environment.facebook.appId,
-          cookie: false,
-          xfbml: false,
-          version: environment.facebook.apiVersion,
-        });
-        resolve();
-      };
+      window.fbAsyncInit = () => resolve();
       const existing = document.getElementById('facebook-jssdk');
       if (existing) {
         return; // fbAsyncInit will fire once it loads
@@ -92,6 +95,6 @@ export class FacebookAuthService {
       script.onerror = () => reject(new Error('Failed to load the Facebook SDK.'));
       document.body.appendChild(script);
     });
-    return this.sdkPromise;
+    return this.scriptPromise;
   }
 }

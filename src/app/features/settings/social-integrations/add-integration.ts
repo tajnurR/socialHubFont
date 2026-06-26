@@ -117,17 +117,12 @@ import { SocialIntegrationsService } from './social-integrations.service';
             } @else {
               <button
                 type="button"
-                [disabled]="busy() || !facebookConfigured"
+                [disabled]="busy()"
                 class="flex w-full items-center justify-center gap-2 rounded-lg bg-[#1877F2] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#166fe0] disabled:opacity-60"
                 (click)="connectWithFacebook()"
               >
                 {{ busy() ? 'Connecting…' : 'Connect with Facebook' }}
               </button>
-              @if (!facebookConfigured) {
-                <p class="mt-2 text-xs text-amber-600">
-                  Facebook login isn't configured in the app (no SDK App ID). Use the manual option below.
-                </p>
-              }
 
               <button type="button" class="mt-4 text-xs font-medium text-slate-500 hover:text-slate-700" (click)="toggleManual()">
                 {{ showManual() ? '▾' : '▸' }} Advanced: connect manually with a Page token
@@ -171,7 +166,6 @@ export class AddIntegration {
   private readonly router = inject(Router);
 
   protected readonly configs = PLATFORM_CONFIGS;
-  protected readonly facebookConfigured = this.facebookAuth.configured;
 
   protected readonly platform = signal<SocialPlatform | null>(null);
   protected readonly credStatus = signal<FacebookCredentialStatus | null>(null);
@@ -252,7 +246,8 @@ export class AddIntegration {
   protected async connectWithFacebook(): Promise<void> {
     this.busy.set(true);
     try {
-      const shortLivedToken = await this.facebookAuth.login();
+      const appId = this.credStatus()?.appId ?? '';
+      const shortLivedToken = await this.facebookAuth.login(appId);
       const result = await firstValueFrom(this.service.facebookExchange(shortLivedToken));
       if (result.pages.length === 1) {
         await this.connectPage(result.pages[0], result.exchangeId);

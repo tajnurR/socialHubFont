@@ -119,7 +119,8 @@ export class IntegrationsList implements OnInit {
   protected async reconnect(integration: SocialIntegration): Promise<void> {
     this.busyId.set(integration.id);
     try {
-      const shortLivedToken = await this.facebookAuth.login();
+      const creds = await firstValueFrom(this.service.facebookCredentialStatus());
+      const shortLivedToken = await this.facebookAuth.login(creds.appId ?? '');
       const exchange = await firstValueFrom(this.service.facebookExchange(shortLivedToken));
       await firstValueFrom(this.service.reauth(integration.id, exchange.exchangeId));
       this.notifications.success('Integration reconnected');
