@@ -13,6 +13,7 @@ export interface SocialIntegration {
   tokenType?: string | null;
   tokenObtainedAt?: string | null;
   tokenExpiresAt?: string | null;
+  appCredentialId?: number | null;
   createdAt: string;
 }
 
@@ -27,6 +28,27 @@ export interface FacebookExchangeResult {
   exchangeId: string;
   pages: FacebookPageOption[];
   userTokenExpiresAt?: string | null;
+}
+
+/** A stored Facebook app config owned by the current user. Secret is masked only. */
+export interface FacebookCredentialConfig {
+  id: number;
+  label?: string | null;
+  appId: string;
+  appSecretMasked: string;
+  redirectUri?: string | null;
+  scopes?: string | null;
+  apiVersion?: string | null;
+}
+
+/** Create another Facebook app config for the current user. */
+export interface FacebookCredentialConfigRequest {
+  appId: string;
+  appSecret: string;
+  label?: string | null;
+  redirectUri?: string | null;
+  scopes?: string | null;
+  apiVersion?: string | null;
 }
 
 /** Mirrors the backend `ConnectIntegrationRequest`. Credentials are platform-specific. */

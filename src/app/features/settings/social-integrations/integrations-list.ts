@@ -39,11 +39,16 @@ import { SocialIntegrationsService } from './social-integrations.service';
           <div class="rounded-xl border border-slate-200 bg-white p-5">
             <div class="flex items-start justify-between">
               <div>
-                <p class="font-semibold text-slate-800">{{ it.displayName || it.externalAccountId }}</p>
+                <p class="font-semibold text-slate-800">
+                  {{ it.displayName || it.externalAccountId }}
+                </p>
                 <p class="text-xs text-slate-400">{{ it.platform }} · {{ it.externalAccountId }}</p>
                 <p class="mt-1 text-xs text-slate-400">Token {{ it.accessTokenMasked }}</p>
               </div>
-              <span class="rounded-full px-2 py-1 text-xs font-medium" [class]="statusClass(it.status)">
+              <span
+                class="rounded-full px-2 py-1 text-xs font-medium"
+                [class]="statusClass(it.status)"
+              >
                 {{ it.status === 'REAUTH_REQUIRED' ? 'Reconnect needed' : it.status }}
               </span>
             </div>
@@ -81,7 +86,9 @@ import { SocialIntegrationsService } from './social-integrations.service';
             </div>
           </div>
         } @empty {
-          <div class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-400 lg:col-span-2">
+          <div
+            class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-400 lg:col-span-2"
+          >
             No integrations yet. Click “Add Integration” to connect a Facebook Page.
           </div>
         }
@@ -119,9 +126,16 @@ export class IntegrationsList implements OnInit {
   protected async reconnect(integration: SocialIntegration): Promise<void> {
     this.busyId.set(integration.id);
     try {
-      const creds = await firstValueFrom(this.service.facebookCredentialStatus());
-      const shortLivedToken = await this.facebookAuth.login(creds.appId ?? '');
-      const exchange = await firstValueFrom(this.service.facebookExchange(shortLivedToken));
+      const configs = await firstValueFrom(this.service.facebookCredentialConfigs());
+      const config =
+        configs.find((item) => item.id === integration.appCredentialId) ?? configs[0] ?? null;
+      if (!config) {
+        throw new Error('Add Facebook app credentials before reconnecting.');
+      }
+      const shortLivedToken = await this.facebookAuth.login(config.appId);
+      const exchange = await firstValueFrom(
+        this.service.facebookExchange(shortLivedToken, config.id),
+      );
       await firstValueFrom(this.service.reauth(integration.id, exchange.exchangeId));
       this.notifications.success('Integration reconnected');
       this.load();

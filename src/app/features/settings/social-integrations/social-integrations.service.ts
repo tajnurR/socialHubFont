@@ -6,6 +6,8 @@ import {
   ConnectIntegrationRequest,
   CreatePostRequest,
   CreatePostResponse,
+  FacebookCredentialConfig,
+  FacebookCredentialConfigRequest,
   FacebookCredentialStatus,
   FacebookExchangeResult,
   IntegrationPostPage,
@@ -52,12 +54,12 @@ export class SocialIntegrationsService {
 
   // --- Facebook OAuth flow ---
 
-  /** Per-org Facebook app credential status (configured? + masked hint). */
+  /** Primary Facebook app credential status (configured? + masked hint). */
   facebookCredentialStatus(): Observable<FacebookCredentialStatus> {
     return this.api.get<FacebookCredentialStatus>(ApiEndpoint.FACEBOOK_CREDENTIALS);
   }
 
-  /** Validate + store the org's Facebook app credentials. */
+  /** Validate + store the user's primary Facebook app credentials. */
   saveFacebookCredentials(appId: string, appSecret: string): Observable<FacebookCredentialStatus> {
     return this.api.post<FacebookCredentialStatus>(ApiEndpoint.FACEBOOK_CREDENTIALS, {
       appId,
@@ -65,10 +67,23 @@ export class SocialIntegrationsService {
     });
   }
 
+  /** List the current user's Facebook app configs. */
+  facebookCredentialConfigs(): Observable<FacebookCredentialConfig[]> {
+    return this.api.get<FacebookCredentialConfig[]>(ApiEndpoint.FACEBOOK_CREDENTIAL_CONFIGS);
+  }
+
+  /** Add another Facebook app config for the current user. */
+  createFacebookCredentialConfig(
+    body: FacebookCredentialConfigRequest,
+  ): Observable<FacebookCredentialConfig> {
+    return this.api.post<FacebookCredentialConfig>(ApiEndpoint.FACEBOOK_CREDENTIAL_CONFIGS, body);
+  }
+
   /** Send the short-lived FB user token; get back selectable pages. */
-  facebookExchange(shortLivedToken: string): Observable<FacebookExchangeResult> {
+  facebookExchange(shortLivedToken: string, configId?: number): Observable<FacebookExchangeResult> {
     return this.api.post<FacebookExchangeResult>(ApiEndpoint.FACEBOOK_OAUTH_EXCHANGE, {
       shortLivedToken,
+      configId,
     });
   }
 
@@ -80,10 +95,22 @@ export class SocialIntegrationsService {
     });
   }
 
+  /** Persist selected pages from a prior exchange. */
+  facebookConnectPages(exchangeId: string, pageIds: string[]): Observable<SocialIntegration[]> {
+    return this.api.post<SocialIntegration[]>(ApiEndpoint.FACEBOOK_OAUTH_CONNECT_PAGES, {
+      exchangeId,
+      pageIds,
+    });
+  }
+
   /** Replace an existing integration's token in place using a fresh exchange. */
   reauth(id: number, exchangeId: string): Observable<SocialIntegration> {
-    return this.api.post<SocialIntegration>(ApiEndpoint.INTEGRATION_REAUTH, { exchangeId }, {
-      pathParams: { id },
-    });
+    return this.api.post<SocialIntegration>(
+      ApiEndpoint.INTEGRATION_REAUTH,
+      { exchangeId },
+      {
+        pathParams: { id },
+      },
+    );
   }
 }
