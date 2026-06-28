@@ -16,7 +16,11 @@ import { SocialIntegrationsService } from './social-integrations.service';
   template: `
     <app-page-header title="New Post" subtitle="Publish a post to this account" />
 
-    <form [formGroup]="form" (ngSubmit)="submit()" class="max-w-lg rounded-xl border border-slate-200 bg-white p-6">
+    <form
+      [formGroup]="form"
+      (ngSubmit)="submit()"
+      class="max-w-lg rounded-xl border border-slate-200 bg-white p-6"
+    >
       <div class="mb-4">
         <label class="mb-1 block text-sm font-medium text-slate-700">Message</label>
         <textarea
@@ -31,7 +35,9 @@ import { SocialIntegrationsService } from './social-integrations.service';
       </div>
 
       <div class="mb-4">
-        <label class="mb-1 block text-sm font-medium text-slate-700">Link <span class="text-slate-400">(optional)</span></label>
+        <label class="mb-1 block text-sm font-medium text-slate-700"
+          >Link <span class="text-slate-400">(optional)</span></label
+        >
         <input
           type="url"
           formControlName="link"
@@ -48,7 +54,10 @@ import { SocialIntegrationsService } from './social-integrations.service';
         >
           {{ submitting() ? 'Publishing…' : 'Publish' }}
         </button>
-        <a [routerLink]="['/settings/social-integrations', id(), 'posts']" class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">
+        <a
+          routerLink="/facebook"
+          class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+        >
           Cancel
         </a>
       </div>
@@ -80,7 +89,7 @@ export class NewPost {
     this.service.createPost(this.id(), { message, link: link || undefined }).subscribe({
       next: () => {
         this.notifications.success('Post published');
-        this.router.navigate(['/settings/social-integrations', this.id(), 'posts']);
+        this.router.navigate(['/facebook', this.id(), 'analytics']);
       },
       error: (err: HttpErrorResponse) => {
         this.submitting.set(false);

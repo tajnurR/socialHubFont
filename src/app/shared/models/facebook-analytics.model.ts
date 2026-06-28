@@ -74,7 +74,6 @@ export interface AnalyticsDashboard {
   comparison?: PeriodComparison | null;
   series: TimeSeriesPoint[];
   posts: PostRow[];
-  capped: boolean;
 }
 
 export type AnalyticsSortBy = 'DATE' | 'LIKES' | 'COMMENTS' | 'SHARES' | 'ENGAGEMENT';

@@ -63,21 +63,6 @@ export interface CreatePostRequest {
   link?: string;
 }
 
-/** Mirrors the backend `IntegrationPostResponse`. */
-export interface IntegrationPost {
-  id: string;
-  message?: string | null;
-  createdTime?: string | null;
-  fullPicture?: string | null;
-  permalinkUrl?: string | null;
-}
-
-/** Mirrors the backend `IntegrationPostPageResponse`. */
-export interface IntegrationPostPage {
-  posts: IntegrationPost[];
-  nextCursor?: string | null;
-}
-
 /** Mirrors the backend `CreatePostResponse`. */
 export interface CreatePostResponse {
   externalPostId: string;

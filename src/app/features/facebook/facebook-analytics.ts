@@ -14,7 +14,7 @@ import {
 } from '../../shared/models/facebook-analytics.model';
 import { FacebookService } from './facebook.service';
 
-type Preset = '7' | '30' | '90' | 'custom';
+type Preset = 'all' | '7' | '30' | '90' | 'custom';
 
 @Component({
   selector: 'app-facebook-analytics',
@@ -35,6 +35,7 @@ export class FacebookAnalytics implements OnInit {
   protected readonly selectedPost = signal<PostRow | null>(null);
 
   protected readonly presets: { value: Preset; label: string }[] = [
+    { value: 'all', label: 'All' },
     { value: '7', label: '7d' },
     { value: '30', label: '30d' },
     { value: '90', label: '90d' },
@@ -51,9 +52,9 @@ export class FacebookAnalytics implements OnInit {
     order: AnalyticsSortOrder;
     granularity: AnalyticsGranularity;
   } = {
-    preset: '30',
-    from: this.daysAgo(30),
-    to: this.today(),
+    preset: 'all',
+    from: '',
+    to: '',
     minLikes: null,
     minComments: null,
     sortBy: 'DATE',
@@ -89,7 +90,10 @@ export class FacebookAnalytics implements OnInit {
         { name: 'Comments', data: s.map((p) => p.comments) },
         { name: 'Shares', data: s.map((p) => p.shares) },
       ],
-      xaxis: { categories: s.map((p) => p.date), labels: { rotate: -45, style: { fontSize: '10px' } } },
+      xaxis: {
+        categories: s.map((p) => p.date),
+        labels: { rotate: -45, style: { fontSize: '10px' } },
+      },
       legend: { position: 'top' },
       tooltip: { shared: true },
       noData: { text: 'No data for this period' },
@@ -104,7 +108,10 @@ export class FacebookAnalytics implements OnInit {
       dataLabels: { enabled: false },
       colors: ['#6366f1'],
       series: [{ name: 'Posts', data: s.map((p) => p.posts) }],
-      xaxis: { categories: s.map((p) => p.date), labels: { rotate: -45, style: { fontSize: '10px' } } },
+      xaxis: {
+        categories: s.map((p) => p.date),
+        labels: { rotate: -45, style: { fontSize: '10px' } },
+      },
       noData: { text: 'No data for this period' },
     };
   });
@@ -115,7 +122,11 @@ export class FacebookAnalytics implements OnInit {
       chart: { type: 'donut', height: 300, fontFamily: 'inherit' },
       labels: ['Reactions', 'Comments', 'Shares'],
       colors: ['#6366f1', '#10b981', '#f59e0b'],
-      series: [summary?.totalReactions ?? 0, summary?.totalComments ?? 0, summary?.totalShares ?? 0],
+      series: [
+        summary?.totalReactions ?? 0,
+        summary?.totalComments ?? 0,
+        summary?.totalShares ?? 0,
+      ],
       legend: { position: 'bottom' },
       dataLabels: { enabled: true },
       noData: { text: 'No data for this period' },
@@ -123,7 +134,9 @@ export class FacebookAnalytics implements OnInit {
   });
 
   protected readonly topPostsChart = computed<ApexOptions>(() => {
-    const top = [...(this.data()?.posts ?? [])].sort((a, b) => b.engagement - a.engagement).slice(0, 5);
+    const top = [...(this.data()?.posts ?? [])]
+      .sort((a, b) => b.engagement - a.engagement)
+      .slice(0, 5);
     return {
       chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
       plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
@@ -143,7 +156,11 @@ export class FacebookAnalytics implements OnInit {
 
   protected setPreset(preset: Preset): void {
     this.filterModel.preset = preset;
-    if (preset !== 'custom') {
+    if (preset === 'all') {
+      this.filterModel.from = '';
+      this.filterModel.to = '';
+      this.load();
+    } else if (preset !== 'custom') {
       const days = Number(preset);
       this.filterModel.from = this.daysAgo(days);
       this.filterModel.to = this.today();
@@ -157,9 +174,9 @@ export class FacebookAnalytics implements OnInit {
 
   protected reset(): void {
     this.filterModel = {
-      preset: '30',
-      from: this.daysAgo(30),
-      to: this.today(),
+      preset: 'all',
+      from: '',
+      to: '',
       minLikes: null,
       minComments: null,
       sortBy: 'DATE',

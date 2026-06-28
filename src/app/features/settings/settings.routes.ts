@@ -17,11 +17,6 @@ export const SETTINGS_ROUTES: Routes = [
       import('./social-integrations/add-integration').then((m) => m.AddIntegration),
   },
   {
-    path: 'social-integrations/:id/posts',
-    loadComponent: () =>
-      import('./social-integrations/integration-posts').then((m) => m.IntegrationPosts),
-  },
-  {
     path: 'social-integrations/:id/posts/new',
     loadComponent: () => import('./social-integrations/new-post').then((m) => m.NewPost),
   },

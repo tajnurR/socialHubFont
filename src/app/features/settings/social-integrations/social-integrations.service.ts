@@ -10,7 +10,6 @@ import {
   FacebookCredentialConfigRequest,
   FacebookCredentialStatus,
   FacebookExchangeResult,
-  IntegrationPostPage,
   SocialIntegration,
 } from '../../../shared/models/social-integration.model';
 import { ProviderInfo } from '../../../shared/models/social-platform.model';
@@ -37,13 +36,6 @@ export class SocialIntegrationsService {
 
   disconnect(id: number): Observable<void> {
     return this.api.delete<void>(ApiEndpoint.INTEGRATION_BY_ID, { pathParams: { id } });
-  }
-
-  getPosts(id: number, cursor?: string): Observable<IntegrationPostPage> {
-    return this.api.get<IntegrationPostPage>(ApiEndpoint.INTEGRATION_POSTS, {
-      pathParams: { id },
-      params: cursor ? { cursor } : undefined,
-    });
   }
 
   createPost(id: number, body: CreatePostRequest): Observable<CreatePostResponse> {

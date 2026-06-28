@@ -9,7 +9,7 @@ import { SocialIntegration } from '../../../shared/models/social-integration.mod
 import { FacebookAuthService } from './facebook-auth.service';
 import { SocialIntegrationsService } from './social-integrations.service';
 
-/** Lists connected integrations with actions: view posts, disconnect, add new. */
+/** Lists connected integrations with actions: reconnect, disconnect, add new. */
 @Component({
   selector: 'app-integrations-list',
   imports: [RouterLink, PageHeader],
@@ -60,12 +60,6 @@ import { SocialIntegrationsService } from './social-integrations.service';
             }
 
             <div class="mt-4 flex flex-wrap gap-2">
-              <a
-                [routerLink]="[it.id, 'posts']"
-                class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                View posts
-              </a>
               @if (it.platform === 'FACEBOOK') {
                 <button
                   type="button"
