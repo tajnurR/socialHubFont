@@ -1,0 +1,1021 @@
+import { DatePipe, NgClass } from '@angular/common';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { ConfirmService } from '../../core/services/confirm.service';
+import { NotificationService } from '../../core/services/notification.service';
+import { PageHeader } from '../../shared/components/page-header/page-header';
+import {
+  BulkUploadResult,
+  CreatePostRequest,
+  PostResponse,
+  PostStatus,
+  Product,
+  ScheduleEvent,
+  UpdatePostRequest,
+} from '../../shared/models/publishing.model';
+import { SocialIntegration } from '../../shared/models/social-integration.model';
+import { SocialPlatform } from '../../shared/models/social-platform.model';
+import { PublishingService } from './publishing.service';
+
+type PostFormMode = 'create' | 'edit';
+
+interface PlatformConfig {
+  platform: SocialPlatform;
+  label: string;
+  accountLabel: string;
+  contentLabel: string;
+  titleLabel: string;
+  mediaRequired: boolean;
+}
+
+interface PostForm {
+  id?: number;
+  title: string;
+  content: string;
+  socialIntegrationId: number | null;
+  scheduleEventId: number | null;
+  mediaUrl: string;
+  link: string;
+  productId: number | null;
+  status: PostStatus;
+  scheduledAtLocal: string;
+}
+
+@Component({
+  selector: 'app-post-management',
+  imports: [DatePipe, FormsModule, NgClass, PageHeader, RouterLink],
+  template: `
+    <div class="space-y-5">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <app-page-header
+          title="Add Post"
+          subtitle="Create, upload, review, schedule, and manage your social media posts."
+        />
+        <button
+          type="button"
+          routerLink="/posts/new"
+          class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-indigo-700 sm:w-auto"
+        >
+          + Add New
+        </button>
+      </div>
+
+      <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div
+          class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[minmax(200px,1fr)_150px_150px_190px_180px_140px_140px]"
+        >
+          <label>
+            <span class="text-xs font-medium text-slate-500">Keyword</span>
+            <input
+              [(ngModel)]="filters.keyword"
+              (ngModelChange)="loadPosts()"
+              type="search"
+              placeholder="Search title or content"
+              class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            />
+          </label>
+          <label>
+            <span class="text-xs font-medium text-slate-500">Status</span>
+            <select
+              [(ngModel)]="filters.status"
+              (ngModelChange)="loadPosts()"
+              class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">All</option>
+              @for (status of postStatuses; track status) {
+                <option [value]="status">{{ statusLabel(status) }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            <span class="text-xs font-medium text-slate-500">Platform</span>
+            <select
+              [(ngModel)]="filters.platform"
+              (ngModelChange)="loadPosts()"
+              class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option value="">All</option>
+              @for (config of platformConfigs; track config.platform) {
+                <option [value]="config.platform">{{ config.label }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            <span class="text-xs font-medium text-slate-500">Page / Account</span>
+            <select
+              [(ngModel)]="filters.pageId"
+              (ngModelChange)="loadPosts()"
+              class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option [ngValue]="null">All</option>
+              @for (account of accounts(); track account.id) {
+                <option [ngValue]="account.id">{{ accountName(account) }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            <span class="text-xs font-medium text-slate-500">Schedule</span>
+            <select
+              [(ngModel)]="filters.scheduleId"
+              (ngModelChange)="loadPosts()"
+              class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option [ngValue]="null">All</option>
+              @for (schedule of schedules(); track schedule.id) {
+                <option [ngValue]="schedule.id">{{ schedule.name }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            <span class="text-xs font-medium text-slate-500">From</span>
+            <input
+              [(ngModel)]="filters.from"
+              (ngModelChange)="loadPosts()"
+              type="date"
+              class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+          <label>
+            <span class="text-xs font-medium text-slate-500">To</span>
+            <input
+              [(ngModel)]="filters.to"
+              (ngModelChange)="loadPosts()"
+              type="date"
+              class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+          </label>
+        </div>
+      </section>
+
+      <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm font-medium text-slate-700">{{ posts().length }} post(s)</p>
+          <div class="flex items-center justify-between gap-2 text-sm text-slate-500 sm:justify-start">
+            <span>Rows</span>
+            <select
+              [(ngModel)]="pageSize"
+              (ngModelChange)="page.set(1)"
+              class="rounded-lg border border-slate-300 px-2 py-1 text-sm"
+            >
+              <option [ngValue]="10">10</option>
+              <option [ngValue]="25">25</option>
+              <option [ngValue]="50">50</option>
+            </select>
+          </div>
+        </div>
+
+        @if (loading()) {
+          <p class="px-4 py-8 text-center text-sm text-slate-400">Loading posts...</p>
+        } @else {
+          <div class="divide-y divide-slate-100 lg:hidden">
+            @for (post of pagedPosts(); track post.id) {
+              <article class="space-y-3 px-4 py-4">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <p class="font-mono text-xs text-slate-400">#{{ post.id }}</p>
+                    <h3 class="mt-1 line-clamp-2 text-sm font-semibold text-slate-900">
+                      {{ post.title || preview(post) }}
+                    </h3>
+                  </div>
+                  <span
+                    class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium"
+                    [ngClass]="statusClass(post.status)"
+                  >
+                    {{ statusLabel(post.status) }}
+                  </span>
+                </div>
+
+                <p class="line-clamp-3 text-sm text-slate-600">{{ post.content || '(no content)' }}</p>
+
+                <dl class="grid grid-cols-1 gap-2 text-xs text-slate-500 sm:grid-cols-2">
+                  <div class="rounded-lg bg-slate-50 p-2">
+                    <dt class="font-medium text-slate-400">Platform</dt>
+                    <dd class="mt-0.5 text-slate-700">{{ platformLabel(post.platform) }}</dd>
+                  </div>
+                  <div class="rounded-lg bg-slate-50 p-2">
+                    <dt class="font-medium text-slate-400">Account</dt>
+                    <dd class="mt-0.5 truncate text-slate-700">
+                      {{ post.targetAccountName || accountLabel(post.socialIntegrationId) }}
+                    </dd>
+                  </div>
+                  <div class="rounded-lg bg-slate-50 p-2">
+                    <dt class="font-medium text-slate-400">Schedule</dt>
+                    <dd class="mt-0.5 text-slate-700">{{ post.scheduleName || 'None' }}</dd>
+                  </div>
+                  <div class="rounded-lg bg-slate-50 p-2">
+                    <dt class="font-medium text-slate-400">Scheduled</dt>
+                    <dd class="mt-0.5 text-slate-700">
+                      {{ post.scheduledAt ? (post.scheduledAt | date: 'medium') : 'Not scheduled' }}
+                    </dd>
+                  </div>
+                  <div class="rounded-lg bg-slate-50 p-2">
+                    <dt class="font-medium text-slate-400">Created</dt>
+                    <dd class="mt-0.5 text-slate-700">{{ post.createdAt | date: 'mediumDate' }}</dd>
+                  </div>
+                  <div class="rounded-lg bg-slate-50 p-2">
+                    <dt class="font-medium text-slate-400">Updated</dt>
+                    <dd class="mt-0.5 text-slate-700">{{ post.updatedAt | date: 'mediumDate' }}</dd>
+                  </div>
+                </dl>
+
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                  <button
+                    type="button"
+                    class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700"
+                    (click)="view(post)"
+                  >
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg border border-indigo-100 px-3 py-2 text-xs font-medium text-indigo-700"
+                    (click)="openEdit(post)"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg border border-red-100 px-3 py-2 text-xs font-medium text-red-600"
+                    (click)="remove(post)"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            } @empty {
+              <p class="px-4 py-10 text-center text-sm text-slate-400">No posts found.</p>
+            }
+          </div>
+
+          <div class="hidden overflow-x-auto lg:block">
+            <table class="w-full min-w-[1100px] text-left text-sm">
+              <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th class="px-4 py-3">Post ID</th>
+                  <th class="px-4 py-3">Post Title / Preview</th>
+                  <th class="px-4 py-3">Platform</th>
+                  <th class="px-4 py-3">Target Page / Account</th>
+                  <th class="px-4 py-3">Schedule</th>
+                  <th class="px-4 py-3">Created Date</th>
+                  <th class="px-4 py-3">Scheduled Date</th>
+                  <th class="px-4 py-3">Status</th>
+                  <th class="px-4 py-3">Last Updated</th>
+                  <th class="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                @for (post of pagedPosts(); track post.id) {
+                  <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-3 font-mono text-xs text-slate-500">#{{ post.id }}</td>
+                    <td class="max-w-xs px-4 py-3">
+                      <p class="truncate font-medium text-slate-800">
+                        {{ post.title || preview(post) }}
+                      </p>
+                      <p class="mt-1 line-clamp-2 text-xs text-slate-500">{{ post.content }}</p>
+                    </td>
+                    <td class="px-4 py-3">{{ platformLabel(post.platform) }}</td>
+                    <td class="px-4 py-3 text-slate-600">
+                      {{ post.targetAccountName || accountLabel(post.socialIntegrationId) }}
+                    </td>
+                    <td class="px-4 py-3 text-slate-600">{{ post.scheduleName || 'None' }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ post.createdAt | date: 'mediumDate' }}</td>
+                    <td class="px-4 py-3 text-slate-600">
+                      {{ post.scheduledAt ? (post.scheduledAt | date: 'medium') : 'Not scheduled' }}
+                    </td>
+                    <td class="px-4 py-3">
+                      <span
+                        class="rounded-full px-2.5 py-1 text-xs font-medium"
+                        [ngClass]="statusClass(post.status)"
+                      >
+                        {{ statusLabel(post.status) }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-600">{{ post.updatedAt | date: 'mediumDate' }}</td>
+                    <td class="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        class="text-xs font-medium text-slate-600 hover:underline"
+                        (click)="view(post)"
+                      >
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        class="ml-3 text-xs font-medium text-indigo-600 hover:underline"
+                        (click)="openEdit(post)"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        class="ml-3 text-xs font-medium text-red-600 hover:underline"
+                        (click)="remove(post)"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="10" class="px-4 py-10 text-center text-sm text-slate-400">
+                      No posts found.
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        <div class="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <span class="text-slate-500">Page {{ page() }} of {{ totalPages() }}</span>
+          <div class="grid grid-cols-2 gap-2 sm:flex">
+            <button
+              type="button"
+              class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 disabled:opacity-40"
+              [disabled]="page() <= 1"
+              (click)="page.update((value) => value - 1)"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              class="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 disabled:opacity-40"
+              [disabled]="page() >= totalPages()"
+              (click)="page.update((value) => value + 1)"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    @if (drawerOpen()) {
+      <div class="fixed inset-0 z-40 bg-slate-900/30" (click)="closeDrawer()"></div>
+      <aside
+        class="fixed inset-y-0 right-0 z-50 flex w-full max-w-4xl flex-col overflow-hidden bg-slate-50 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit post"
+      >
+        <header class="border-b border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                Edit Post
+              </p>
+              <h2 class="mt-1 text-xl font-bold text-slate-900">
+                {{ selectedConfig()?.label || 'Select platform' }}
+              </h2>
+            </div>
+            <button
+              type="button"
+              class="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100"
+              (click)="closeDrawer()"
+            >
+              Close
+            </button>
+          </div>
+        </header>
+
+        <div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+          @if (!selectedPlatform()) {
+            <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              @for (config of platformConfigs; track config.platform) {
+                <button
+                  type="button"
+                  class="rounded-lg border border-slate-200 bg-white p-4 text-left hover:border-indigo-200 hover:bg-indigo-50"
+                  (click)="selectPlatform(config.platform)"
+                >
+                  <p class="font-semibold text-slate-900">{{ config.label }}</p>
+                  <p class="mt-1 text-xs text-slate-500">{{ config.accountLabel }}</p>
+                  <p class="mt-3 text-xs font-medium text-indigo-600">
+                    {{ platformAccounts(config.platform).length }} connected
+                  </p>
+                </button>
+              }
+            </section>
+          } @else {
+            <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+              <section class="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+                <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 class="font-semibold text-slate-900">Single post</h3>
+                  @if (mode() === 'create') {
+                    <button
+                      type="button"
+                      class="text-sm font-medium text-slate-500 hover:text-indigo-600"
+                      (click)="selectedPlatform.set(null)"
+                    >
+                      Change platform
+                    </button>
+                  }
+                </div>
+
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <label class="sm:col-span-2">
+                    <span class="text-sm font-medium text-slate-700">
+                      {{ selectedConfig()?.accountLabel }}
+                    </span>
+                    <select
+                      [(ngModel)]="form.socialIntegrationId"
+                      class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                      [class.border-red-300]="submitted() && !form.socialIntegrationId"
+                      [class.border-slate-300]="!(submitted() && !form.socialIntegrationId)"
+                    >
+                      <option [ngValue]="null">Select account</option>
+                      @for (account of selectedAccounts(); track account.id) {
+                        <option [ngValue]="account.id">{{ accountName(account) }}</option>
+                      }
+                    </select>
+                    @if (submitted() && !form.socialIntegrationId) {
+                      <p class="mt-1 text-xs text-red-600">Target page/account is required.</p>
+                    }
+                  </label>
+
+                  <label>
+                    <span class="text-sm font-medium text-slate-700">
+                      {{ selectedConfig()?.titleLabel }}
+                    </span>
+                    <input
+                      [(ngModel)]="form.title"
+                      class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </label>
+
+                  <label>
+                    <span class="text-sm font-medium text-slate-700">Schedule</span>
+                    <select
+                      [(ngModel)]="form.scheduleEventId"
+                      class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option [ngValue]="null">None</option>
+                      @for (schedule of schedules(); track schedule.id) {
+                        <option [ngValue]="schedule.id">{{ schedule.name }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label class="sm:col-span-2">
+                    <span class="text-sm font-medium text-slate-700">
+                      {{ selectedConfig()?.contentLabel }}
+                    </span>
+                    <textarea
+                      [(ngModel)]="form.content"
+                      rows="5"
+                      class="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                      [class.border-red-300]="submitted() && !form.content.trim()"
+                      [class.border-slate-300]="!(submitted() && !form.content.trim())"
+                    ></textarea>
+                    @if (submitted() && !form.content.trim()) {
+                      <p class="mt-1 text-xs text-red-600">Post content is required.</p>
+                    }
+                  </label>
+
+                  <label>
+                    <span class="text-sm font-medium text-slate-700">Image / Video URL</span>
+                    <input
+                      [(ngModel)]="form.mediaUrl"
+                      class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                      [class.border-red-300]="submitted() && mediaMissing()"
+                      [class.border-slate-300]="!(submitted() && mediaMissing())"
+                    />
+                    @if (submitted() && mediaMissing()) {
+                      <p class="mt-1 text-xs text-red-600">Media is required for this platform.</p>
+                    }
+                  </label>
+
+                  <label>
+                    <span class="text-sm font-medium text-slate-700">Link</span>
+                    <input
+                      [(ngModel)]="form.link"
+                      class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    />
+                  </label>
+
+                  <label>
+                    <span class="text-sm font-medium text-slate-700">Product</span>
+                    <select
+                      [(ngModel)]="form.productId"
+                      class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option [ngValue]="null">None</option>
+                      @for (product of products(); track product.id) {
+                        <option [ngValue]="product.id">{{ product.name }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label>
+                    <span class="text-sm font-medium text-slate-700">Status</span>
+                    <select
+                      [(ngModel)]="form.status"
+                      class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="DRAFT">Draft</option>
+                      <option value="SCHEDULED">Scheduled</option>
+                      <option value="PAUSED">Paused</option>
+                      <option value="CANCELLED">Cancelled</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    <span class="text-sm font-medium text-slate-700">Publish date & time</span>
+                    <input
+                      [(ngModel)]="form.scheduledAtLocal"
+                      type="datetime-local"
+                      class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                      [class.border-red-300]="submitted() && scheduleTimeMissing()"
+                      [class.border-slate-300]="!(submitted() && scheduleTimeMissing())"
+                    />
+                    @if (submitted() && scheduleTimeMissing()) {
+                      <p class="mt-1 text-xs text-red-600">Scheduled posts need a publish time.</p>
+                    }
+                  </label>
+                </div>
+
+                <div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    class="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 sm:w-auto"
+                    (click)="closeDrawer()"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 sm:w-auto"
+                    [disabled]="saving()"
+                    (click)="savePost()"
+                  >
+                    {{ saving() ? 'Saving...' : mode() === 'edit' ? 'Save Changes' : 'Save Post' }}
+                  </button>
+                </div>
+              </section>
+
+              @if (mode() === 'create') {
+                <section class="rounded-lg border border-slate-200 bg-white p-5">
+                  <h3 class="font-semibold text-slate-900">Bulk upload</h3>
+                  <p class="mt-1 text-sm text-slate-500">
+                    Platform: {{ selectedConfig()?.label }}. Valid rows import as drafts.
+                  </p>
+
+                  <button
+                    type="button"
+                    class="mt-4 w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                    [disabled]="downloading()"
+                    (click)="downloadTemplate()"
+                  >
+                    {{ downloading() ? 'Preparing...' : 'Download template' }}
+                  </button>
+
+                  <input
+                    type="file"
+                    accept=".xlsx"
+                    class="mt-4 w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700"
+                    (change)="onFileSelected($event)"
+                  />
+
+                  <button
+                    type="button"
+                    class="mt-3 w-full rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                    [disabled]="!selectedFile() || uploading()"
+                    (click)="upload()"
+                  >
+                    {{ uploading() ? 'Uploading...' : 'Upload Excel' }}
+                  </button>
+
+                  @if (uploadResult(); as result) {
+                    <div class="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <p class="text-sm font-medium text-emerald-700">
+                        {{ result.importedCount }} post(s) imported as drafts.
+                      </p>
+                      @if (result.errors.length) {
+                        <ul class="mt-2 max-h-44 space-y-1 overflow-y-auto text-xs text-amber-700">
+                          @for (error of result.errors; track error.row) {
+                            <li>Row {{ error.row }}: {{ error.message }}</li>
+                          }
+                        </ul>
+                      }
+                    </div>
+                  }
+                </section>
+              }
+            </div>
+          }
+        </div>
+      </aside>
+    }
+
+    @if (viewing(); as post) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+        <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-4 shadow-xl sm:p-6">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-indigo-600">
+                {{ platformLabel(post.platform) }} Post #{{ post.id }}
+              </p>
+              <h3 class="mt-1 text-xl font-bold text-slate-900">{{ post.title || preview(post) }}</h3>
+            </div>
+            <button
+              type="button"
+              class="rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-100"
+              (click)="viewing.set(null)"
+            >
+              Close
+            </button>
+          </div>
+          <div class="mt-5 space-y-3 text-sm">
+            <p class="whitespace-pre-wrap rounded-lg bg-slate-50 p-4 text-slate-700">{{ post.content }}</p>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <p><span class="text-slate-400">Account:</span> {{ post.targetAccountName || accountLabel(post.socialIntegrationId) }}</p>
+              <p><span class="text-slate-400">Status:</span> {{ statusLabel(post.status) }}</p>
+              <p><span class="text-slate-400">Schedule:</span> {{ post.scheduleName || 'None' }}</p>
+              <p><span class="text-slate-400">Scheduled:</span> {{ post.scheduledAt ? (post.scheduledAt | date: 'medium') : 'Not scheduled' }}</p>
+              <p><span class="text-slate-400">Created:</span> {{ post.createdAt | date: 'medium' }}</p>
+              <p><span class="text-slate-400">Updated:</span> {{ post.updatedAt | date: 'medium' }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  `,
+})
+export class PostManagement implements OnInit {
+  private readonly publishing = inject(PublishingService);
+  private readonly notify = inject(NotificationService);
+  private readonly confirm = inject(ConfirmService);
+
+  protected readonly platformConfigs: PlatformConfig[] = [
+    {
+      platform: 'FACEBOOK',
+      label: 'Facebook',
+      accountLabel: 'Select Facebook Page',
+      contentLabel: 'Post Content',
+      titleLabel: 'Post Title',
+      mediaRequired: false,
+    },
+    {
+      platform: 'INSTAGRAM',
+      label: 'Instagram',
+      accountLabel: 'Select Instagram Account',
+      contentLabel: 'Caption',
+      titleLabel: 'Internal Title',
+      mediaRequired: true,
+    },
+    {
+      platform: 'LINKEDIN',
+      label: 'LinkedIn',
+      accountLabel: 'Select Company Page or Profile',
+      contentLabel: 'Post Content',
+      titleLabel: 'Post Title',
+      mediaRequired: false,
+    },
+    {
+      platform: 'X',
+      label: 'X',
+      accountLabel: 'Select X Account',
+      contentLabel: 'Post Content',
+      titleLabel: 'Internal Title',
+      mediaRequired: false,
+    },
+  ];
+  protected readonly postStatuses: PostStatus[] = [
+    'DRAFT',
+    'SCHEDULED',
+    'POSTED',
+    'FAILED',
+    'NOT_POSTED',
+    'PAUSED',
+    'CANCELLED',
+  ];
+
+  protected readonly posts = signal<PostResponse[]>([]);
+  protected readonly accounts = signal<SocialIntegration[]>([]);
+  protected readonly schedules = signal<ScheduleEvent[]>([]);
+  protected readonly products = signal<Product[]>([]);
+  protected readonly loading = signal(true);
+  protected readonly page = signal(1);
+  protected pageSize = 10;
+
+  protected readonly drawerOpen = signal(false);
+  protected readonly selectedPlatform = signal<SocialPlatform | null>(null);
+  protected readonly mode = signal<PostFormMode>('create');
+  protected readonly submitted = signal(false);
+  protected readonly saving = signal(false);
+  protected readonly viewing = signal<PostResponse | null>(null);
+
+  protected readonly selectedFile = signal<File | null>(null);
+  protected readonly downloading = signal(false);
+  protected readonly uploading = signal(false);
+  protected readonly uploadResult = signal<BulkUploadResult | null>(null);
+
+  protected filters: {
+    keyword: string;
+    status: '' | PostStatus;
+    platform: '' | SocialPlatform;
+    pageId: number | null;
+    scheduleId: number | null;
+    from: string;
+    to: string;
+  } = {
+    keyword: '',
+    status: '',
+    platform: '',
+    pageId: null,
+    scheduleId: null,
+    from: '',
+    to: '',
+  };
+
+  protected form: PostForm = this.emptyForm();
+
+  protected readonly totalPages = computed(() =>
+    Math.max(1, Math.ceil(this.posts().length / this.pageSize)),
+  );
+  protected readonly pagedPosts = computed(() => {
+    const start = (this.page() - 1) * this.pageSize;
+    return this.posts().slice(start, start + this.pageSize);
+  });
+  protected readonly selectedConfig = computed(() =>
+    this.platformConfigs.find((config) => config.platform === this.selectedPlatform()),
+  );
+  protected readonly selectedAccounts = computed(() =>
+    this.platformAccounts(this.selectedPlatform()),
+  );
+
+  ngOnInit(): void {
+    this.loadOptions();
+    this.loadPosts();
+  }
+
+  protected loadPosts(): void {
+    this.loading.set(true);
+    this.publishing
+      .listPosts({
+        keyword: this.filters.keyword || undefined,
+        status: this.filters.status || undefined,
+        platform: this.filters.platform || undefined,
+        pageId: this.filters.pageId ?? undefined,
+        scheduleId: this.filters.scheduleId ?? undefined,
+        from: this.filters.from ? startOfDayIso(this.filters.from) : undefined,
+        to: this.filters.to ? endOfDayIso(this.filters.to) : undefined,
+      })
+      .subscribe({
+        next: (items) => {
+          this.posts.set(items);
+          this.page.set(1);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.notify.error('Could not load posts.');
+          this.loading.set(false);
+        },
+      });
+  }
+
+  protected openCreate(): void {
+    this.mode.set('create');
+    this.selectedPlatform.set(null);
+    this.form = this.emptyForm();
+    this.submitted.set(false);
+    this.uploadResult.set(null);
+    this.selectedFile.set(null);
+    this.drawerOpen.set(true);
+  }
+
+  protected openEdit(post: PostResponse): void {
+    this.mode.set('edit');
+    this.selectedPlatform.set(post.platform);
+    this.form = {
+      id: post.id,
+      title: post.title ?? '',
+      content: post.content ?? '',
+      socialIntegrationId: post.socialIntegrationId,
+      scheduleEventId: post.scheduleEventId ?? null,
+      mediaUrl: post.mediaUrl ?? '',
+      link: post.link ?? '',
+      productId: post.productId ?? null,
+      status: post.status === 'POSTED' || post.status === 'FAILED' ? 'DRAFT' : post.status,
+      scheduledAtLocal: post.scheduledAt ? toLocalInput(post.scheduledAt) : '',
+    };
+    this.submitted.set(false);
+    this.drawerOpen.set(true);
+  }
+
+  protected closeDrawer(): void {
+    this.drawerOpen.set(false);
+    this.selectedPlatform.set(null);
+    this.submitted.set(false);
+  }
+
+  protected selectPlatform(platform: SocialPlatform): void {
+    this.selectedPlatform.set(platform);
+    this.form = this.emptyForm();
+    this.form.socialIntegrationId = this.platformAccounts(platform)[0]?.id ?? null;
+  }
+
+  protected savePost(): void {
+    this.submitted.set(true);
+    if (!this.selectedPlatform() || !this.form.socialIntegrationId || !this.form.content.trim()) {
+      return;
+    }
+    if (this.mediaMissing() || this.scheduleTimeMissing()) {
+      return;
+    }
+    const body = this.formBody();
+    this.saving.set(true);
+    const request$ =
+      this.mode() === 'edit' && this.form.id
+        ? this.publishing.updatePost(this.form.id, body as UpdatePostRequest)
+        : this.publishing.createPost(body as CreatePostRequest);
+    request$.subscribe({
+      next: () => {
+        this.notify.success(this.mode() === 'edit' ? 'Post updated.' : 'Post saved.');
+        this.saving.set(false);
+        this.loadPosts();
+        if (this.mode() === 'edit') {
+          this.closeDrawer();
+        } else {
+          const platform = this.selectedPlatform();
+          this.form = this.emptyForm();
+          this.form.socialIntegrationId = platform ? this.platformAccounts(platform)[0]?.id ?? null : null;
+          this.submitted.set(false);
+        }
+      },
+      error: (err) => {
+        this.notify.error(err?.error?.message ?? 'Could not save post.');
+        this.saving.set(false);
+      },
+    });
+  }
+
+  protected view(post: PostResponse): void {
+    this.viewing.set(post);
+  }
+
+  protected async remove(post: PostResponse): Promise<void> {
+    const ok = await this.confirm.ask(`Delete post #${post.id}?`, 'Delete post', 'Delete');
+    if (!ok) {
+      return;
+    }
+    this.publishing.deletePost(post.id).subscribe({
+      next: () => {
+        this.notify.success('Post deleted.');
+        this.loadPosts();
+      },
+      error: () => this.notify.error('Could not delete post.'),
+    });
+  }
+
+  protected downloadTemplate(): void {
+    const platform = this.selectedPlatform();
+    if (!platform) {
+      return;
+    }
+    this.downloading.set(true);
+    this.publishing.downloadTemplate(platform).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${platform.toLowerCase()}-posts-template.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.downloading.set(false);
+      },
+      error: () => {
+        this.notify.error('Could not download the template.');
+        this.downloading.set(false);
+      },
+    });
+  }
+
+  protected onFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedFile.set(input.files?.[0] ?? null);
+  }
+
+  protected upload(): void {
+    const platform = this.selectedPlatform();
+    const file = this.selectedFile();
+    if (!platform || !file) {
+      return;
+    }
+    this.uploading.set(true);
+    this.uploadResult.set(null);
+    this.publishing.bulkUpload(platform, file).subscribe({
+      next: (result) => {
+        this.uploadResult.set(result);
+        this.uploading.set(false);
+        this.notify.success(`Imported ${result.importedCount} post(s).`);
+        this.loadPosts();
+      },
+      error: (err) => {
+        this.notify.error(err?.error?.message ?? 'Upload failed.');
+        this.uploading.set(false);
+      },
+    });
+  }
+
+  protected platformAccounts(platform: SocialPlatform | null): SocialIntegration[] {
+    if (!platform) {
+      return [];
+    }
+    return this.accounts().filter((account) => account.platform === platform);
+  }
+
+  protected accountName(account: SocialIntegration): string {
+    return account.displayName || account.externalAccountId || `#${account.id}`;
+  }
+
+  protected accountLabel(id: number | null | undefined): string {
+    const account = this.accounts().find((item) => item.id === id);
+    return account ? this.accountName(account) : id ? `#${id}` : 'None';
+  }
+
+  protected platformLabel(platform: SocialPlatform): string {
+    return this.platformConfigs.find((config) => config.platform === platform)?.label ?? platform;
+  }
+
+  protected statusLabel(status: PostStatus): string {
+    return status
+      .toLowerCase()
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
+  protected statusClass(status: PostStatus): string {
+    if (status === 'POSTED') return 'bg-emerald-50 text-emerald-700';
+    if (status === 'SCHEDULED') return 'bg-amber-50 text-amber-700';
+    if (status === 'FAILED' || status === 'NOT_POSTED' || status === 'CANCELLED')
+      return 'bg-red-50 text-red-700';
+    if (status === 'PAUSED') return 'bg-slate-100 text-slate-600';
+    return 'bg-slate-50 text-slate-700';
+  }
+
+  protected preview(post: PostResponse): string {
+    return post.content?.slice(0, 80) || '(no content)';
+  }
+
+  protected mediaMissing(): boolean {
+    return Boolean(this.selectedConfig()?.mediaRequired && !this.form.mediaUrl.trim());
+  }
+
+  protected scheduleTimeMissing(): boolean {
+    return this.form.status === 'SCHEDULED' && !this.form.scheduledAtLocal;
+  }
+
+  private loadOptions(): void {
+    this.publishing.listAccounts().subscribe({ next: (items) => this.accounts.set(items) });
+    this.publishing.listScheduleEvents().subscribe({ next: (items) => this.schedules.set(items) });
+    this.publishing.listProducts().subscribe({ next: (items) => this.products.set(items) });
+  }
+
+  private formBody(): CreatePostRequest | UpdatePostRequest {
+    return {
+      platform: this.selectedPlatform()!,
+      socialIntegrationId: this.form.socialIntegrationId!,
+      scheduleEventId: this.form.scheduleEventId,
+      title: this.form.title.trim() || null,
+      content: this.form.content.trim(),
+      link: this.form.link.trim() || null,
+      mediaUrl: this.form.mediaUrl.trim() || null,
+      productId: this.form.productId,
+      status: this.form.status,
+      scheduledAt: this.form.scheduledAtLocal
+        ? new Date(this.form.scheduledAtLocal).toISOString()
+        : null,
+    };
+  }
+
+  private emptyForm(): PostForm {
+    return {
+      title: '',
+      content: '',
+      socialIntegrationId: null,
+      scheduleEventId: null,
+      mediaUrl: '',
+      link: '',
+      productId: null,
+      status: 'DRAFT',
+      scheduledAtLocal: '',
+    };
+  }
+}
+
+function startOfDayIso(date: string): string {
+  return new Date(`${date}T00:00:00`).toISOString();
+}
+
+function endOfDayIso(date: string): string {
+  return new Date(`${date}T23:59:59`).toISOString();
+}
+
+function toLocalInput(value: string): string {
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}

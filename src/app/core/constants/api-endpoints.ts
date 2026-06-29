@@ -37,7 +37,7 @@ export enum ApiEndpoint {
   // --- Analytics ---
   ANALYTICS_SUMMARY = '/analytics/summary',
 
-  // --- Posts (bulk upload, drafts, publishing) ---
+  // --- Posts (post management, bulk upload, publishing) ---
   POSTS = '/posts',
   POST_BY_ID = '/posts/:id',
   POSTS_TEMPLATE = '/posts/template',

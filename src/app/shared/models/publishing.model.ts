@@ -1,13 +1,22 @@
 import { SocialPlatform } from './social-platform.model';
 
 /** Post lifecycle (mirrors backend `PostStatus`). */
-export type PostStatus = 'DRAFT' | 'SCHEDULED' | 'POSTED' | 'FAILED';
+export type PostStatus =
+  | 'DRAFT'
+  | 'SCHEDULED'
+  | 'POSTED'
+  | 'NOT_POSTED'
+  | 'FAILED'
+  | 'PAUSED'
+  | 'CANCELLED';
 
 /** Mirrors the backend `PostResponse` DTO. */
 export interface PostResponse {
   id: number;
   socialIntegrationId: number;
+  targetAccountName?: string | null;
   platform: SocialPlatform;
+  title?: string | null;
   content?: string | null;
   link?: string | null;
   mediaUrl?: string | null;
@@ -18,16 +27,37 @@ export interface PostResponse {
   externalPostId?: string | null;
   errorMessage?: string | null;
   scheduleEventId?: number | null;
+  scheduleName?: string | null;
   createdAt: string;
+  updatedAt: string;
+}
+
+/** Create a single post from Post Management. */
+export interface CreatePostRequest {
+  platform: SocialPlatform;
+  socialIntegrationId: number;
+  scheduleEventId?: number | null;
+  title?: string | null;
+  content: string;
+  link?: string | null;
+  mediaUrl?: string | null;
+  productId?: number | null;
+  status?: PostStatus | null;
+  scheduledAt?: string | null;
 }
 
 /** Editable fields of a draft (mirrors `UpdatePostRequest`). */
 export interface UpdatePostRequest {
-  content?: string | null;
+  platform?: SocialPlatform | null;
+  socialIntegrationId?: number | null;
+  scheduleEventId?: number | null;
+  title?: string | null;
+  content: string;
   link?: string | null;
   mediaUrl?: string | null;
   productId?: number | null;
-  socialIntegrationId?: number | null;
+  status?: PostStatus | null;
+  scheduledAt?: string | null;
 }
 
 export interface RowError {
@@ -43,9 +73,14 @@ export interface BulkUploadResult {
 
 /** Optional filters for the posts list. */
 export interface PostFilter {
+  keyword?: string;
   status?: PostStatus;
+  platform?: SocialPlatform;
   pageId?: number;
   productId?: number;
+  scheduleId?: number;
+  from?: string;
+  to?: string;
 }
 
 // --- Products --------------------------------------------------------------

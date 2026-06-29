@@ -42,17 +42,28 @@ export const routes: Routes = [
           import('./features/facebook/facebook.routes').then((m) => m.FACEBOOK_ROUTES),
       },
       {
+        path: 'posts/new',
+        loadComponent: () => import('./features/publishing/post-create').then((m) => m.PostCreate),
+      },
+      {
+        path: 'posts',
+        loadComponent: () =>
+          import('./features/publishing/post-management').then((m) => m.PostManagement),
+      },
+      {
         path: 'posts/bulk-upload',
-        loadComponent: () => import('./features/publishing/bulk-upload').then((m) => m.BulkUpload),
+        pathMatch: 'full',
+        redirectTo: '/posts',
       },
       {
         path: 'posts/drafts',
-        loadComponent: () => import('./features/publishing/drafts').then((m) => m.Drafts),
+        pathMatch: 'full',
+        redirectTo: '/posts',
       },
       {
         path: 'posts/monitor',
-        loadComponent: () =>
-          import('./features/publishing/posts-monitor').then((m) => m.PostsMonitor),
+        pathMatch: 'full',
+        redirectTo: '/posts',
       },
       {
         path: 'schedules',

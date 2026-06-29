@@ -16,8 +16,8 @@ import { PublishingService } from './publishing.service';
       <p class="text-sm text-slate-400">Loading schedules…</p>
     } @else if (events().length === 0) {
       <div class="rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
-        No schedules yet. Select drafts on the
-        <a routerLink="/posts/drafts" class="font-medium text-indigo-600 hover:underline">Drafts</a>
+        No schedules yet. Review posts on the
+        <a routerLink="/posts" class="font-medium text-indigo-600 hover:underline">Add Post</a>
         page and apply a schedule.
       </div>
     } @else {

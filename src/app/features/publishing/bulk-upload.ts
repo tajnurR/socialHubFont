@@ -108,7 +108,7 @@ export class BulkUpload {
 
   protected download(): void {
     this.downloading.set(true);
-    this.publishing.downloadTemplate().subscribe({
+    this.publishing.downloadTemplate('FACEBOOK').subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -132,7 +132,7 @@ export class BulkUpload {
     }
     this.uploading.set(true);
     this.result.set(null);
-    this.publishing.bulkUpload(file).subscribe({
+    this.publishing.bulkUpload('FACEBOOK', file).subscribe({
       next: (res) => {
         this.result.set(res);
         this.uploading.set(false);
