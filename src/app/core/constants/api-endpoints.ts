@@ -37,6 +37,28 @@ export enum ApiEndpoint {
   // --- Analytics ---
   ANALYTICS_SUMMARY = '/analytics/summary',
 
+  // --- Posts (bulk upload, drafts, publishing) ---
+  POSTS = '/posts',
+  POST_BY_ID = '/posts/:id',
+  POSTS_TEMPLATE = '/posts/template',
+  POSTS_BULK_UPLOAD = '/posts/bulk-upload',
+  POST_PUBLISH = '/posts/:id/publish',
+
+  // --- Products ---
+  PRODUCTS = '/products',
+  PRODUCT_BY_ID = '/products/:id',
+
+  // --- Schedule events ---
+  SCHEDULE_EVENTS = '/schedule-events',
+  SCHEDULE_EVENT_POSTS = '/schedule-events/:id/posts',
+  SCHEDULES = '/schedules',
+  SCHEDULE_BY_ID = '/schedules/:id',
+  SCHEDULE_DUPLICATE = '/schedules/:id/duplicate',
+  SCHEDULE_TOGGLE_PAUSE = '/schedules/:id/toggle-pause',
+  SCHEDULE_POST_QUICK_ACTION = '/schedules/:scheduleId/posts/:postId/quick-action',
+  SCHEDULE_POST_RESCHEDULE = '/schedules/:scheduleId/posts/:postId/reschedule',
+  SCHEDULE_TEMPLATES = '/schedules/templates',
+
   // --- Planned platform endpoints (backend stubs not implemented yet) ---
   FACEBOOK_POSTS = '/facebook/posts',
   FACEBOOK_POST_BY_ID = '/facebook/posts/:id',

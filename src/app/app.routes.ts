@@ -38,7 +38,34 @@ export const routes: Routes = [
       },
       {
         path: 'facebook',
-        loadChildren: () => import('./features/facebook/facebook.routes').then((m) => m.FACEBOOK_ROUTES),
+        loadChildren: () =>
+          import('./features/facebook/facebook.routes').then((m) => m.FACEBOOK_ROUTES),
+      },
+      {
+        path: 'posts/bulk-upload',
+        loadComponent: () => import('./features/publishing/bulk-upload').then((m) => m.BulkUpload),
+      },
+      {
+        path: 'posts/drafts',
+        loadComponent: () => import('./features/publishing/drafts').then((m) => m.Drafts),
+      },
+      {
+        path: 'posts/monitor',
+        loadComponent: () =>
+          import('./features/publishing/posts-monitor').then((m) => m.PostsMonitor),
+      },
+      {
+        path: 'schedules',
+        loadComponent: () => import('./features/schedules/schedules').then((m) => m.Schedules),
+      },
+      {
+        path: 'schedules/:id',
+        loadComponent: () =>
+          import('./features/schedules/schedule-details').then((m) => m.ScheduleDetails),
+      },
+      {
+        path: 'products',
+        loadComponent: () => import('./features/publishing/products').then((m) => m.Products),
       },
       {
         path: 'instagram',

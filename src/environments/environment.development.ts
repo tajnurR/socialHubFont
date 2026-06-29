@@ -1,7 +1,7 @@
 /** Development environment: points at the local Spring Boot backend. */
 export const environment = {
   production: false,
-  apiBaseUrl: 'http://localhost:8080/api/v1',
+  apiBaseUrl: 'http://localhost:8081/api/v1',
   facebook: {
     // Public Meta app id (set to enable "Connect with Facebook"). Leave blank to
     // hide the OAuth button and use manual connect only.
