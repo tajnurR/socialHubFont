@@ -2,6 +2,7 @@ import { inject, Injectable, computed, signal } from '@angular/core';
 import { catchError, of, tap } from 'rxjs';
 import { ApiEndpoint } from '../../core/constants/api-endpoints';
 import { ApiService } from '../../core/services/api.service';
+import { SocialIntegration } from '../../shared/models/social-integration.model';
 import {
   BestTimeSuggestion,
   ConflictWarning,
@@ -26,8 +27,10 @@ export class SchedulesService {
   private readonly _schedules = signal<Schedule[]>(
     MOCK_SCHEDULES.map((schedule) => normalize(schedule)),
   );
+  private readonly _accounts = signal<SocialIntegration[]>([]);
 
   readonly schedules = this._schedules.asReadonly();
+  readonly accounts = this._accounts.asReadonly();
   readonly summary = computed(() => this.buildSummary(this._schedules()));
 
   readonly templates: ScheduleTemplate[] = [
@@ -134,6 +137,17 @@ export class SchedulesService {
       )
       .subscribe();
     this.loadTemplates();
+    this.loadAccounts();
+  }
+
+  loadAccounts(): void {
+    this.api
+      .get<SocialIntegration[]>(ApiEndpoint.INTEGRATIONS)
+      .pipe(
+        tap((items) => this._accounts.set(items)),
+        catchError(() => of([])),
+      )
+      .subscribe();
   }
 
   schedule(id: string): Schedule | undefined {
@@ -171,6 +185,12 @@ export class SchedulesService {
         ...post,
         scheduleId: id,
         scheduledAt: post.scheduledAt || buildDateTime(draft.startDate, draft.postingTime, index),
+        status:
+          !asDraft && draft.status === 'active' && post.status === 'draft'
+            ? 'scheduled'
+            : asDraft
+              ? 'draft'
+              : post.status,
       })),
     });
 

@@ -2,6 +2,7 @@ import { NgClass } from '@angular/common';
 import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NotificationService } from '../../core/services/notification.service';
+import { SocialIntegration } from '../../shared/models/social-integration.model';
 import {
   DAYS_OF_WEEK,
   PLATFORM_META,
@@ -247,7 +248,7 @@ import { SchedulesService } from './schedules.service';
                   @for (post of draft().posts; track post.id; let i = $index) {
                     <div
                       draggable="true"
-                      class="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 md:grid-cols-[32px_minmax(0,1fr)_140px_130px_40px]"
+                      class="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 lg:grid-cols-[32px_minmax(0,1fr)_140px_180px_130px_40px]"
                       (dragstart)="dragIndex.set(i)"
                       (dragover)="$event.preventDefault()"
                       (drop)="dropPost(i)"
@@ -267,10 +268,20 @@ import { SchedulesService } from './schedules.service';
                       </label>
                       <select
                         [(ngModel)]="post.platform"
+                        (ngModelChange)="onPostPlatformChange(post)"
                         class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
                       >
                         @for (platform of draft().platforms; track platform) {
                           <option [value]="platform">{{ platformMeta[platform].label }}</option>
+                        }
+                      </select>
+                      <select
+                        [(ngModel)]="post.socialIntegrationId"
+                        class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                      >
+                        <option [ngValue]="undefined">Select page/account</option>
+                        @for (account of accountsFor(post.platform); track account.id) {
+                          <option [ngValue]="account.id">{{ accountName(account) }}</option>
                         }
                       </select>
                       <input
@@ -556,6 +567,7 @@ export class ScheduleEditor {
     const draft = this.draft();
     const platform = draft.platforms[0] ?? 'FACEBOOK';
     const scheduledAt = new Date(`${draft.startDate}T${draft.postingTime}:00`).toISOString();
+    const account = this.accountsFor(platform)[0];
     this.draft.update((current) => ({
       ...current,
       posts: [
@@ -567,7 +579,8 @@ export class ScheduleEditor {
           caption: '',
           platform,
           scheduledAt,
-          status: 'draft',
+          status: current.status === 'active' ? 'scheduled' : current.status === 'paused' ? 'paused' : 'draft',
+          socialIntegrationId: account?.id,
           hashtags: [],
           engagement: { likes: 0, comments: 0, shares: 0 },
           hasMedia: false,
@@ -575,6 +588,21 @@ export class ScheduleEditor {
         },
       ],
     }));
+  }
+
+  protected onPostPlatformChange(post: SchedulePost): void {
+    const accounts = this.accountsFor(post.platform);
+    if (!accounts.some((account) => account.id === post.socialIntegrationId)) {
+      post.socialIntegrationId = accounts[0]?.id;
+    }
+  }
+
+  protected accountsFor(platform: SchedulePlatform): SocialIntegration[] {
+    return this.schedules.accounts().filter((account) => account.platform === platform);
+  }
+
+  protected accountName(account: SocialIntegration): string {
+    return account.displayName || account.externalAccountId || `#${account.id}`;
   }
 
   protected removePost(id: string): void {
@@ -622,6 +650,16 @@ export class ScheduleEditor {
     const draft = this.draft();
     if (!draft.name.trim() || draft.platforms.length === 0 || !draft.startDate) {
       return;
+    }
+    if (!asDraft && draft.status === 'active') {
+      if (draft.posts.some((post) => !post.caption.trim())) {
+        this.notifications.error('Add a caption before scheduling posts for publishing.');
+        return;
+      }
+      if (draft.posts.some((post) => !post.socialIntegrationId)) {
+        this.notifications.error('Select a target page/account for every scheduled post.');
+        return;
+      }
     }
     const saved = this.schedules.save(draft, asDraft);
     this.notifications.success(asDraft ? 'Schedule draft saved' : 'Schedule saved');
