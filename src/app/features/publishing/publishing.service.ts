@@ -64,6 +64,10 @@ export class PublishingService {
     return this.api.post<PostResponse>(ApiEndpoint.POST_PUBLISH, undefined, { pathParams: { id } });
   }
 
+  retryPost(id: number): Observable<PostResponse> {
+    return this.api.post<PostResponse>(ApiEndpoint.POST_RETRY, undefined, { pathParams: { id } });
+  }
+
   /** Downloads the bulk-upload template as XLSX or CSV. */
   downloadTemplate(platform: SocialPlatform, format: 'xlsx' | 'csv' = 'xlsx'): Observable<Blob> {
     return this.api.get<Blob>(ApiEndpoint.POSTS_TEMPLATE, {

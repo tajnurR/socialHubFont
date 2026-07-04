@@ -239,6 +239,15 @@ interface PostForm {
                     Delete
                   </button>
                 </div>
+                @if (post.status === 'FAILED') {
+                  <button
+                    type="button"
+                    class="w-full rounded-lg border border-amber-200 px-3 py-2 text-xs font-medium text-amber-700"
+                    (click)="retry(post)"
+                  >
+                    Retry Now
+                  </button>
+                }
               </article>
             } @empty {
               <p class="px-4 py-10 text-center text-sm text-slate-400">No posts found.</p>
@@ -311,6 +320,15 @@ interface PostForm {
                       >
                         Delete
                       </button>
+                      @if (post.status === 'FAILED') {
+                        <button
+                          type="button"
+                          class="ml-3 text-xs font-medium text-amber-700 hover:underline"
+                          (click)="retry(post)"
+                        >
+                          Retry Now
+                        </button>
+                      }
                     </td>
                   </tr>
                 } @empty {
@@ -600,9 +618,32 @@ interface PostForm {
               <p><span class="text-slate-400">Status:</span> {{ statusLabel(post.status) }}</p>
               <p><span class="text-slate-400">Schedule:</span> {{ post.scheduleName || 'None' }}</p>
               <p><span class="text-slate-400">Scheduled:</span> {{ post.scheduledAt ? (post.scheduledAt | date: 'medium') : 'Not scheduled' }}</p>
+              <p><span class="text-slate-400">Published:</span> {{ post.publishedAt ? (post.publishedAt | date: 'medium') : '—' }}</p>
+              <p><span class="text-slate-400">Facebook Post ID:</span> {{ post.externalPostId || '—' }}</p>
+              <p><span class="text-slate-400">Retry Count:</span> {{ post.retryCount }}</p>
+              <p><span class="text-slate-400">Last Retry:</span> {{ post.lastRetryAt ? (post.lastRetryAt | date: 'medium') : '—' }}</p>
               <p><span class="text-slate-400">Created:</span> {{ post.createdAt | date: 'medium' }}</p>
               <p><span class="text-slate-400">Updated:</span> {{ post.updatedAt | date: 'medium' }}</p>
             </div>
+            @if (post.errorMessage) {
+              <p class="rounded-lg border border-red-100 bg-red-50 p-3 text-red-700">
+                {{ post.errorMessage }}
+              </p>
+            }
+            @if (post.publishResponseSummary) {
+              <p class="rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-emerald-700">
+                {{ post.publishResponseSummary }}
+              </p>
+            }
+            @if (post.status === 'FAILED') {
+              <button
+                type="button"
+                class="rounded-lg border border-amber-200 px-4 py-2 text-sm font-medium text-amber-700"
+                (click)="retry(post)"
+              >
+                Retry Now
+              </button>
+            }
           </div>
         </div>
       </div>
@@ -650,6 +691,8 @@ export class PostManagement implements OnInit {
   ];
   protected readonly postStatuses: PostStatus[] = [
     'DRAFT',
+    'PENDING',
+    'PROCESSING',
     'SCHEDULED',
     'POSTED',
     'FAILED',
@@ -839,6 +882,25 @@ export class PostManagement implements OnInit {
     });
   }
 
+  protected retry(post: PostResponse): void {
+    this.publishing.retryPost(post.id).subscribe({
+      next: (updated) => {
+        const message =
+          updated.status === 'POSTED'
+            ? 'Post published.'
+            : updated.status === 'PENDING'
+              ? 'Retry scheduled.'
+              : updated.status === 'PROCESSING'
+                ? 'Retry started.'
+                : 'Retry finished with an error.';
+        this.notify.success(message);
+        this.viewing.set(updated);
+        this.loadPosts();
+      },
+      error: (err) => this.notify.error(err?.error?.message ?? 'Could not retry the post.'),
+    });
+  }
+
   protected downloadTemplate(): void {
     const platform = this.selectedPlatform();
     if (!platform) {
@@ -919,7 +981,8 @@ export class PostManagement implements OnInit {
 
   protected statusClass(status: PostStatus): string {
     if (status === 'POSTED') return 'bg-emerald-50 text-emerald-700';
-    if (status === 'SCHEDULED') return 'bg-amber-50 text-amber-700';
+    if (status === 'PENDING' || status === 'SCHEDULED') return 'bg-amber-50 text-amber-700';
+    if (status === 'PROCESSING') return 'bg-sky-50 text-sky-700';
     if (status === 'FAILED' || status === 'NOT_POSTED' || status === 'CANCELLED')
       return 'bg-red-50 text-red-700';
     if (status === 'PAUSED') return 'bg-slate-100 text-slate-600';

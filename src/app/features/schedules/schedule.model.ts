@@ -4,7 +4,7 @@ export type SchedulePlatform =
 export type ScheduleStatus = 'active' | 'paused' | 'draft' | 'completed';
 export type ScheduleType = 'one-time' | 'daily' | 'weekly' | 'monthly' | 'custom';
 export type SchedulePostStatus =
-  'draft' | 'scheduled' | 'posted' | 'not_posted' | 'failed' | 'paused';
+  'draft' | 'pending' | 'processing' | 'scheduled' | 'posted' | 'not_posted' | 'failed' | 'paused';
 export type ScheduleSort = 'newest' | 'nextPost' | 'mostPosts' | 'completionRate';
 export type ScheduleView = 'cards' | 'table' | 'calendar';
 

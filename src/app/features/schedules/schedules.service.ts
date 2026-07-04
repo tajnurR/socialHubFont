@@ -778,12 +778,21 @@ function normalize(schedule: Schedule): Schedule {
   const posts = [...schedule.posts].sort(
     (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
   );
-  const pendingStatuses: SchedulePostStatus[] = ['draft', 'scheduled', 'not_posted', 'paused'];
+  const pendingStatuses: SchedulePostStatus[] = [
+    'draft',
+    'pending',
+    'processing',
+    'scheduled',
+    'not_posted',
+    'paused',
+  ];
   const postedCount = posts.filter((post) => post.status === 'posted').length;
   const failedCount = posts.filter((post) => post.status === 'failed').length;
   const pendingCount = posts.filter((post) => pendingStatuses.includes(post.status)).length;
   const nextPostAt = posts.find(
-    (post) => post.status === 'scheduled' && new Date(post.scheduledAt).getTime() >= Date.now(),
+    (post) =>
+      (post.status === 'pending' || post.status === 'scheduled') &&
+      new Date(post.scheduledAt).getTime() >= Date.now(),
   )?.scheduledAt;
   return {
     ...schedule,
@@ -1162,6 +1171,8 @@ function postStatusFromApi(status?: string | null): SchedulePostStatus {
   const normalized = (status ?? 'DRAFT').toLowerCase() as SchedulePostStatus;
   return normalized === 'not_posted' ||
     normalized === 'draft' ||
+    normalized === 'pending' ||
+    normalized === 'processing' ||
     normalized === 'scheduled' ||
     normalized === 'posted' ||
     normalized === 'failed' ||

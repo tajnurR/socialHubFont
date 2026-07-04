@@ -59,6 +59,7 @@ export enum ApiEndpoint {
   POSTS_TEMPLATE = '/posts/template',
   POSTS_BULK_UPLOAD = '/posts/bulk-upload',
   POST_PUBLISH = '/posts/:id/publish',
+  POST_RETRY = '/posts/:id/retry',
 
   // --- Products ---
   PRODUCTS = '/products',

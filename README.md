@@ -93,4 +93,17 @@ The bulk-upload area on Add Post now supports:
 
 Supported media columns in the template are `imageUrl`, `videoUrl`, and
 `googleDriveUrl`, with exactly one media reference allowed per row.
+
+## Scheduled Publishing Status Flow
+
+The post-management and schedules UI now reflect the safer publish lifecycle:
+
+- scheduled drafts move to `Pending`
+- the worker moves claimed posts to `Processing`
+- completed publishes become `Posted`
+- failures stay `Failed` with retry metadata from the API
+
+Failed posts now expose a `Retry Now` action from the post-management view, and
+all displayed publish/schedule timestamps continue to use the browser's local
+timezone through Angular date pipes while the backend stores UTC instants.
 # socialHubFont

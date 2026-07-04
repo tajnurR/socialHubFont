@@ -707,7 +707,7 @@ export class ScheduleDetails implements OnInit {
   }
 
   protected canQuickAction(post: SchedulePost): boolean {
-    return ['scheduled', 'not_posted', 'failed', 'paused'].includes(post.status);
+    return ['pending', 'scheduled', 'not_posted', 'failed', 'paused'].includes(post.status);
   }
 
   protected engagement(post: SchedulePost): number {
@@ -734,6 +734,9 @@ export class ScheduleDetails implements OnInit {
     switch (status) {
       case 'posted':
         return 'bg-emerald-50 text-emerald-700';
+      case 'processing':
+        return 'bg-sky-50 text-sky-700';
+      case 'pending':
       case 'scheduled':
         return 'bg-amber-50 text-amber-700';
       case 'failed':

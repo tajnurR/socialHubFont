@@ -3,6 +3,8 @@ import { SocialPlatform } from './social-platform.model';
 /** Post lifecycle (mirrors backend `PostStatus`). */
 export type PostStatus =
   | 'DRAFT'
+  | 'PENDING'
+  | 'PROCESSING'
   | 'SCHEDULED'
   | 'POSTED'
   | 'NOT_POSTED'
@@ -32,7 +34,10 @@ export interface PostResponse {
   scheduledAt?: string | null;
   publishedAt?: string | null;
   externalPostId?: string | null;
+  publishResponseSummary?: string | null;
   errorMessage?: string | null;
+  retryCount: number;
+  lastRetryAt?: string | null;
   scheduleEventId?: number | null;
   scheduleName?: string | null;
   createdAt: string;
