@@ -402,21 +402,31 @@ interface SaveWorkflowState {
           <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <h2 class="font-semibold text-slate-900">Bulk upload</h2>
             <p class="mt-1 text-sm text-slate-500">
-              Download the {{ config.label }} template. Valid rows import as drafts.
+              Download the {{ config.label }} CSV or XLSX template. Valid rows import as drafts.
             </p>
 
-            <button
-              type="button"
-              class="mt-4 w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
-              [disabled]="downloading()"
-              (click)="downloadTemplate()"
-            >
-              {{ downloading() ? 'Preparing...' : 'Download template' }}
-            </button>
+            <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                class="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                [disabled]="downloading()"
+                (click)="downloadTemplate('xlsx')"
+              >
+                {{ downloading() ? 'Preparing...' : 'Download XLSX' }}
+              </button>
+              <button
+                type="button"
+                class="w-full rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                [disabled]="downloading()"
+                (click)="downloadTemplate('csv')"
+              >
+                {{ downloading() ? 'Preparing...' : 'Download CSV' }}
+              </button>
+            </div>
 
             <input
               type="file"
-              accept=".xlsx"
+              accept=".xlsx,.csv,text/csv"
               class="mt-4 w-full text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700"
               (change)="onBulkFileSelected($event)"
             />
@@ -427,7 +437,7 @@ interface SaveWorkflowState {
               [disabled]="!selectedFile() || uploading()"
               (click)="upload()"
             >
-              {{ uploading() ? 'Uploading...' : 'Upload Excel' }}
+              {{ uploading() ? 'Uploading...' : 'Upload Template' }}
             </button>
 
             @if (uploadResult(); as result) {
@@ -446,6 +456,15 @@ interface SaveWorkflowState {
                       <li>Row {{ error.row }}: {{ error.message }}</li>
                     }
                   </ul>
+                  @if (result.errorReportCsv) {
+                    <button
+                      type="button"
+                      class="mt-3 rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                      (click)="downloadErrorReport(result)"
+                    >
+                      Download error report
+                    </button>
+                  }
                 }
               </div>
             }
@@ -597,18 +616,18 @@ export class PostCreate implements OnInit, OnDestroy {
     }
   }
 
-  protected downloadTemplate(): void {
+  protected downloadTemplate(format: 'xlsx' | 'csv'): void {
     const platform = this.selectedPlatform();
     if (!platform) {
       return;
     }
     this.downloading.set(true);
-    this.publishing.downloadTemplate(platform).subscribe({
+    this.publishing.downloadTemplate(platform, format).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${platform.toLowerCase()}-posts-template.xlsx`;
+        a.download = `${platform.toLowerCase()}-posts-template.${format}`;
         a.click();
         URL.revokeObjectURL(url);
         this.downloading.set(false);
@@ -618,6 +637,19 @@ export class PostCreate implements OnInit, OnDestroy {
         this.downloading.set(false);
       },
     });
+  }
+
+  protected downloadErrorReport(result: BulkUploadResult): void {
+    if (!result.errorReportCsv) {
+      return;
+    }
+    const blob = new Blob([result.errorReportCsv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = result.errorReportFileName || 'bulk-upload-errors.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   protected onBulkFileSelected(event: Event): void {

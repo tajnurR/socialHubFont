@@ -81,4 +81,16 @@ overall page structure:
   duplicate upload.
 - The page shows local preview, save/upload progress, and upload failure state
   while keeping `status` and `scheduledAt` out of the Add Post workflow.
+
+## Bulk Upload Templates
+
+The bulk-upload area on Add Post now supports:
+
+- downloading either `.xlsx` or `.csv` templates
+- uploading `.xlsx` or `.csv` files
+- row-level validation errors returned by the API
+- downloading a generated CSV error report when some rows fail
+
+Supported media columns in the template are `imageUrl`, `videoUrl`, and
+`googleDriveUrl`, with exactly one media reference allowed per row.
 # socialHubFont

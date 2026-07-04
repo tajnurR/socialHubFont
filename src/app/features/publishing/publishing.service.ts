@@ -64,10 +64,10 @@ export class PublishingService {
     return this.api.post<PostResponse>(ApiEndpoint.POST_PUBLISH, undefined, { pathParams: { id } });
   }
 
-  /** Downloads the bulk-upload Excel template as a blob. */
-  downloadTemplate(platform: SocialPlatform): Observable<Blob> {
+  /** Downloads the bulk-upload template as XLSX or CSV. */
+  downloadTemplate(platform: SocialPlatform, format: 'xlsx' | 'csv' = 'xlsx'): Observable<Blob> {
     return this.api.get<Blob>(ApiEndpoint.POSTS_TEMPLATE, {
-      params: { platform },
+      params: { platform, format },
       responseType: 'blob',
     });
   }

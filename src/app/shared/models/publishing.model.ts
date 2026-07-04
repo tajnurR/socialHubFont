@@ -66,12 +66,17 @@ export interface UpdatePostRequest {
 export interface RowError {
   row: number;
   message: string;
+  postTitle?: string | null;
+  pageId?: string | null;
+  mediaReference?: string | null;
 }
 
 /** Outcome of a bulk upload (mirrors `BulkUploadResult`). */
 export interface BulkUploadResult {
   importedCount: number;
   errors: RowError[];
+  errorReportCsv?: string | null;
+  errorReportFileName?: string | null;
 }
 
 /** Optional filters for the posts list. */
