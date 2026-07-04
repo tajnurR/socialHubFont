@@ -37,6 +37,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/analytics/analytics').then((m) => m.Analytics),
       },
       {
+        path: 'media',
+        loadComponent: () => import('./features/media/media-library').then((m) => m.MediaLibrary),
+      },
+      {
         path: 'facebook',
         loadChildren: () =>
           import('./features/facebook/facebook.routes').then((m) => m.FACEBOOK_ROUTES),

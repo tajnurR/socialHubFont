@@ -20,6 +20,7 @@ export interface PostResponse {
   content?: string | null;
   link?: string | null;
   mediaUrl?: string | null;
+  mediaType?: 'IMAGE' | 'VIDEO' | null;
   productId?: number | null;
   status: PostStatus;
   scheduledAt?: string | null;
@@ -36,28 +37,22 @@ export interface PostResponse {
 export interface CreatePostRequest {
   platform: SocialPlatform;
   socialIntegrationId: number;
-  scheduleEventId?: number | null;
-  title?: string | null;
+  title: string;
   content: string;
   link?: string | null;
   mediaUrl?: string | null;
-  productId?: number | null;
-  status?: PostStatus | null;
-  scheduledAt?: string | null;
+  productId: number;
 }
 
 /** Editable fields of a draft (mirrors `UpdatePostRequest`). */
 export interface UpdatePostRequest {
   platform?: SocialPlatform | null;
   socialIntegrationId?: number | null;
-  scheduleEventId?: number | null;
   title?: string | null;
   content: string;
   link?: string | null;
   mediaUrl?: string | null;
   productId?: number | null;
-  status?: PostStatus | null;
-  scheduledAt?: string | null;
 }
 
 export interface RowError {

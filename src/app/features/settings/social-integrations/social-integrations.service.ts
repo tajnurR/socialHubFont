@@ -10,6 +10,13 @@ import {
   FacebookCredentialConfigRequest,
   FacebookCredentialStatus,
   FacebookExchangeResult,
+  GoogleDriveAuthorizationUrl,
+  GoogleDriveConnection,
+  GoogleDriveCredentialConfig,
+  GoogleDriveCredentialConfigRequest,
+  GoogleDriveFile,
+  GoogleDriveFiles,
+  GoogleDriveTestResult,
   SocialIntegration,
 } from '../../../shared/models/social-integration.model';
 import { ProviderInfo } from '../../../shared/models/social-platform.model';
@@ -103,6 +110,60 @@ export class SocialIntegrationsService {
       {
         pathParams: { id },
       },
+    );
+  }
+
+  // --- Google Drive storage integration ---
+
+  googleDriveStatus(): Observable<GoogleDriveConnection> {
+    return this.api.get<GoogleDriveConnection>(ApiEndpoint.GOOGLE_DRIVE);
+  }
+
+  googleDriveAuthorizationUrl(
+    redirectUri: string,
+    configId?: number,
+  ): Observable<GoogleDriveAuthorizationUrl> {
+    return this.api.post<GoogleDriveAuthorizationUrl>(ApiEndpoint.GOOGLE_DRIVE_AUTHORIZATION_URL, {
+      redirectUri,
+      configId,
+    });
+  }
+
+  googleDriveOAuthCallback(code: string, state: string): Observable<GoogleDriveConnection> {
+    return this.api.post<GoogleDriveConnection>(ApiEndpoint.GOOGLE_DRIVE_OAUTH_CALLBACK, {
+      code,
+      state,
+    });
+  }
+
+  disconnectGoogleDrive(): Observable<GoogleDriveConnection> {
+    return this.api.post<GoogleDriveConnection>(ApiEndpoint.GOOGLE_DRIVE_DISCONNECT);
+  }
+
+  testGoogleDrive(): Observable<GoogleDriveTestResult> {
+    return this.api.post<GoogleDriveTestResult>(ApiEndpoint.GOOGLE_DRIVE_TEST);
+  }
+
+  listGoogleDriveFiles(): Observable<GoogleDriveFiles> {
+    return this.api.get<GoogleDriveFiles>(ApiEndpoint.GOOGLE_DRIVE_FILES);
+  }
+
+  uploadGoogleDriveFile(file: File): Observable<GoogleDriveFile> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.api.post<GoogleDriveFile>(ApiEndpoint.GOOGLE_DRIVE_FILES, form);
+  }
+
+  googleDriveCredentialConfigs(): Observable<GoogleDriveCredentialConfig[]> {
+    return this.api.get<GoogleDriveCredentialConfig[]>(ApiEndpoint.GOOGLE_DRIVE_CREDENTIAL_CONFIGS);
+  }
+
+  createGoogleDriveCredentialConfig(
+    body: GoogleDriveCredentialConfigRequest,
+  ): Observable<GoogleDriveCredentialConfig> {
+    return this.api.post<GoogleDriveCredentialConfig>(
+      ApiEndpoint.GOOGLE_DRIVE_CREDENTIAL_CONFIGS,
+      body,
     );
   }
 }

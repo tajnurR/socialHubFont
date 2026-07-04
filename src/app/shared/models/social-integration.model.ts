@@ -74,3 +74,68 @@ export interface FacebookCredentialStatus {
   appId?: string | null;
   appSecretMasked?: string | null;
 }
+
+export type DriveConnectionStatus =
+  | 'CONNECTED'
+  | 'REAUTH_REQUIRED'
+  | 'DISCONNECTED'
+  | 'ERROR';
+
+export interface GoogleDriveConnection {
+  connected: boolean;
+  googleAccountName?: string | null;
+  googleAccountEmail?: string | null;
+  status: DriveConnectionStatus;
+  connectedAt?: string | null;
+  lastSyncAt?: string | null;
+}
+
+export interface GoogleDriveAuthorizationUrl {
+  authorizationUrl: string;
+  state: string;
+  expiresAt: string;
+}
+
+export interface GoogleDriveCredentialConfig {
+  id: number;
+  label?: string | null;
+  clientId: string;
+  clientSecretMasked: string;
+  redirectUri?: string | null;
+  scopes?: string | null;
+}
+
+export interface GoogleDriveCredentialConfigRequest {
+  clientId: string;
+  clientSecret: string;
+  label?: string | null;
+  redirectUri?: string | null;
+  scopes?: string | null;
+}
+
+export interface GoogleDriveQuota {
+  limitBytes?: number | null;
+  usageBytes?: number | null;
+  full: boolean;
+}
+
+export interface GoogleDriveTestResult {
+  ok: boolean;
+  message: string;
+  testedAt: string;
+  quota?: GoogleDriveQuota | null;
+}
+
+export interface GoogleDriveFile {
+  id: string;
+  name: string;
+  mimeType?: string | null;
+  webViewLink?: string | null;
+  webContentLink?: string | null;
+  size?: number | null;
+  createdTime?: string | null;
+}
+
+export interface GoogleDriveFiles {
+  files: GoogleDriveFile[];
+}

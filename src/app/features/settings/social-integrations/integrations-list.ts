@@ -27,6 +27,23 @@ import { SocialIntegrationsService } from './social-integrations.service';
       </a>
     </div>
 
+    <section class="mb-6 rounded-xl border border-slate-200 bg-white p-5">
+      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="text-base font-semibold text-slate-800">Storage / Drive Integrations</h2>
+          <p class="mt-1 text-sm text-slate-500">
+            Connect Google Drive to store media files for social posts.
+          </p>
+        </div>
+        <a
+          routerLink="storage-drive"
+          class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Manage Drive
+        </a>
+      </div>
+    </section>
+
     @if (loading()) {
       <p class="text-sm text-slate-400">Loading integrations…</p>
     } @else if (error()) {

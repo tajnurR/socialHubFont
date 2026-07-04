@@ -34,6 +34,22 @@ export enum ApiEndpoint {
   FACEBOOK_PAGES = '/facebook/pages',
   FACEBOOK_PAGE_ANALYTICS = '/facebook/pages/:integrationId/analytics',
 
+  // --- Storage integrations ---
+  GOOGLE_DRIVE = '/storage/google-drive',
+  GOOGLE_DRIVE_AUTHORIZATION_URL = '/storage/google-drive/oauth/authorization-url',
+  GOOGLE_DRIVE_OAUTH_CALLBACK = '/storage/google-drive/oauth/callback',
+  GOOGLE_DRIVE_DISCONNECT = '/storage/google-drive/disconnect',
+  GOOGLE_DRIVE_TEST = '/storage/google-drive/test',
+  GOOGLE_DRIVE_FILES = '/storage/google-drive/files',
+  GOOGLE_DRIVE_CREDENTIAL_CONFIGS = '/storage/google-drive/credentials/configs',
+
+  // --- Media library ---
+  MEDIA = '/media',
+  MEDIA_BY_ID = '/media/:id',
+  MEDIA_RETRY = '/media/:id/retry',
+  MEDIA_DOWNLOAD = '/media/:id/download',
+  MEDIA_EXPORT = '/media/export',
+
   // --- Analytics ---
   ANALYTICS_SUMMARY = '/analytics/summary',
 

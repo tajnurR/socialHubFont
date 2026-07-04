@@ -41,6 +41,7 @@ export class Sidebar {
     { label: 'Dashboard', path: '/dashboard', icon: '▥' },
     { label: 'Accounts', path: '/accounts', icon: '⚇' },
     { label: 'Analytics', path: '/analytics', icon: '▦' },
+    { label: 'Media', path: '/media', icon: '▣' },
     { label: 'Facebook', path: '/facebook', icon: 'f' },
     { label: 'Add Post', path: '/posts', icon: '✎' },
     { label: 'Schedules', path: '/schedules', icon: '🗓' },

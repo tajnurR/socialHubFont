@@ -7,9 +7,7 @@ import { PageHeader } from '../../shared/components/page-header/page-header';
 import {
   BulkUploadResult,
   CreatePostRequest,
-  PostStatus,
   Product,
-  ScheduleEvent,
 } from '../../shared/models/publishing.model';
 import { SocialIntegration } from '../../shared/models/social-integration.model';
 import { SocialPlatform } from '../../shared/models/social-platform.model';
@@ -28,12 +26,9 @@ interface PostForm {
   title: string;
   content: string;
   socialIntegrationId: number | null;
-  scheduleEventId: number | null;
   mediaUrl: string;
   link: string;
   productId: number | null;
-  status: PostStatus;
-  scheduledAtLocal: string;
 }
 
 @Component({
@@ -124,21 +119,13 @@ interface PostForm {
                 <span class="text-sm font-medium text-slate-700">{{ config.titleLabel }}</span>
                 <input
                   [(ngModel)]="form.title"
-                  class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  [class.border-red-300]="submitted() && !form.title.trim()"
+                  [class.border-slate-300]="!(submitted() && !form.title.trim())"
                 />
-              </label>
-
-              <label>
-                <span class="text-sm font-medium text-slate-700">Schedule</span>
-                <select
-                  [(ngModel)]="form.scheduleEventId"
-                  class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option [ngValue]="null">None</option>
-                  @for (schedule of schedules(); track schedule.id) {
-                    <option [ngValue]="schedule.id">{{ schedule.name }}</option>
-                  }
-                </select>
+                @if (submitted() && !form.title.trim()) {
+                  <p class="mt-1 text-xs text-red-600">Post title is required.</p>
+                }
               </label>
 
               <label class="sm:col-span-2">
@@ -180,39 +167,17 @@ interface PostForm {
                 <span class="text-sm font-medium text-slate-700">Product</span>
                 <select
                   [(ngModel)]="form.productId"
-                  class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                  [class.border-red-300]="submitted() && !form.productId"
+                  [class.border-slate-300]="!(submitted() && !form.productId)"
                 >
-                  <option [ngValue]="null">None</option>
+                  <option [ngValue]="null">Select product</option>
                   @for (product of products(); track product.id) {
                     <option [ngValue]="product.id">{{ product.name }}</option>
                   }
                 </select>
-              </label>
-
-              <label>
-                <span class="text-sm font-medium text-slate-700">Status</span>
-                <select
-                  [(ngModel)]="form.status"
-                  class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                >
-                  <option value="DRAFT">Draft</option>
-                  <option value="SCHEDULED">Scheduled</option>
-                  <option value="PAUSED">Paused</option>
-                  <option value="CANCELLED">Cancelled</option>
-                </select>
-              </label>
-
-              <label>
-                <span class="text-sm font-medium text-slate-700">Publish date & time</span>
-                <input
-                  [(ngModel)]="form.scheduledAtLocal"
-                  type="datetime-local"
-                  class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                  [class.border-red-300]="submitted() && scheduleTimeMissing()"
-                  [class.border-slate-300]="!(submitted() && scheduleTimeMissing())"
-                />
-                @if (submitted() && scheduleTimeMissing()) {
-                  <p class="mt-1 text-xs text-red-600">Scheduled posts need a publish time.</p>
+                @if (submitted() && !form.productId) {
+                  <p class="mt-1 text-xs text-red-600">Product is required.</p>
                 }
               </label>
             </div>
@@ -336,7 +301,6 @@ export class PostCreate implements OnInit {
   ];
 
   protected readonly accounts = signal<SocialIntegration[]>([]);
-  protected readonly schedules = signal<ScheduleEvent[]>([]);
   protected readonly products = signal<Product[]>([]);
   protected readonly selectedPlatform = signal<SocialPlatform | null>(null);
   protected readonly submitted = signal(false);
@@ -357,7 +321,6 @@ export class PostCreate implements OnInit {
 
   ngOnInit(): void {
     this.publishing.listAccounts().subscribe({ next: (items) => this.accounts.set(items) });
-    this.publishing.listScheduleEvents().subscribe({ next: (items) => this.schedules.set(items) });
     this.publishing.listProducts().subscribe({ next: (items) => this.products.set(items) });
   }
 
@@ -377,10 +340,16 @@ export class PostCreate implements OnInit {
 
   protected savePost(): void {
     this.submitted.set(true);
-    if (!this.selectedPlatform() || !this.form.socialIntegrationId || !this.form.content.trim()) {
+    if (
+      !this.selectedPlatform() ||
+      !this.form.socialIntegrationId ||
+      !this.form.content.trim() ||
+      !this.form.title.trim() ||
+      !this.form.productId
+    ) {
       return;
     }
-    if (this.mediaMissing() || this.scheduleTimeMissing()) {
+    if (this.mediaMissing()) {
       return;
     }
     this.saving.set(true);
@@ -461,24 +430,15 @@ export class PostCreate implements OnInit {
     return Boolean(this.selectedConfig()?.mediaRequired && !this.form.mediaUrl.trim());
   }
 
-  protected scheduleTimeMissing(): boolean {
-    return this.form.status === 'SCHEDULED' && !this.form.scheduledAtLocal;
-  }
-
   private formBody(): CreatePostRequest {
     return {
       platform: this.selectedPlatform()!,
       socialIntegrationId: this.form.socialIntegrationId!,
-      scheduleEventId: this.form.scheduleEventId,
-      title: this.form.title.trim() || null,
+      title: this.form.title.trim(),
       content: this.form.content.trim(),
       link: this.form.link.trim() || null,
       mediaUrl: this.form.mediaUrl.trim() || null,
-      productId: this.form.productId,
-      status: this.form.status,
-      scheduledAt: this.form.scheduledAtLocal
-        ? new Date(this.form.scheduledAtLocal).toISOString()
-        : null,
+      productId: this.form.productId!,
     };
   }
 
@@ -487,12 +447,9 @@ export class PostCreate implements OnInit {
       title: '',
       content: '',
       socialIntegrationId: null,
-      scheduleEventId: null,
       mediaUrl: '',
       link: '',
       productId: null,
-      status: 'DRAFT',
-      scheduledAtLocal: '',
     };
   }
 }
