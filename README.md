@@ -45,7 +45,7 @@ library only if cross-feature coordination demands it.
 
 ### Environments
 `src/environments/environment.ts` (prod, `apiBaseUrl: /api/v1`) is swapped for
-`environment.development.ts` (`http://localhost:8080/api/v1`) in the `development`
+`environment.development.ts` (`http://localhost:8081/api/v1`) in the `development`
 build via `fileReplacements` in `angular.json`. `ng serve` uses development.
 
 ## Adding a new feature
@@ -64,6 +64,21 @@ npm start          # ng serve → http://localhost:4200
 ```
 
 Build: `npm run build`. The dev server points at the backend on
-`http://localhost:8080`; start the backend (see `../../back/README.md`) for the
+`http://localhost:8081`; start the backend (see `../../back/README.md`) for the
 dashboard/accounts pages to load live data — they degrade gracefully otherwise.
+
+## Add Post Media Flow
+
+The Add Post page now supports draft-first media handling without changing the
+overall page structure:
+
+- Users can drag/drop an image or video, choose a file from their device, or
+  attach an existing uploaded Media Library item.
+- New files follow a staged flow: create draft post first, upload media to
+  Google Drive through the Media Library API, then attach the resulting
+  `mediaAssetId` back to the draft.
+- Existing Media Library items are attached directly to the draft without a
+  duplicate upload.
+- The page shows local preview, save/upload progress, and upload failure state
+  while keeping `status` and `scheduledAt` out of the Add Post workflow.
 # socialHubFont

@@ -20,7 +20,13 @@ export interface PostResponse {
   content?: string | null;
   link?: string | null;
   mediaUrl?: string | null;
+  mediaAssetId?: number | null;
   mediaType?: 'IMAGE' | 'VIDEO' | null;
+  googleDriveFileId?: string | null;
+  googleDriveUrl?: string | null;
+  directDownloadUrl?: string | null;
+  thumbnailUrl?: string | null;
+  mediaUploadStatus?: 'UPLOADING' | 'UPLOADED' | 'FAILED' | null;
   productId?: number | null;
   status: PostStatus;
   scheduledAt?: string | null;
@@ -41,6 +47,7 @@ export interface CreatePostRequest {
   content: string;
   link?: string | null;
   mediaUrl?: string | null;
+  mediaAssetId?: number | null;
   productId: number;
 }
 
@@ -52,6 +59,7 @@ export interface UpdatePostRequest {
   content: string;
   link?: string | null;
   mediaUrl?: string | null;
+  mediaAssetId?: number | null;
   productId?: number | null;
 }
 
