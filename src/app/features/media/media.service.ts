@@ -3,8 +3,10 @@ import { Observable } from 'rxjs';
 import { ApiEndpoint } from '../../core/constants/api-endpoints';
 import { ApiService } from '../../core/services/api.service';
 import {
+  CreateMediaFolderRequest,
   MediaBulkUploadResult,
   MediaFilter,
+  MediaFolder,
   MediaItem,
 } from '../../shared/models/media.model';
 
@@ -12,16 +14,28 @@ import {
 export class MediaService {
   private readonly api = inject(ApiService);
 
-  list(filter: MediaFilter = 'ALL'): Observable<MediaItem[]> {
-    return this.api.get<MediaItem[]>(ApiEndpoint.MEDIA, { params: { filter } });
+  list(filter: MediaFilter = 'ALL', folderId?: number | null): Observable<MediaItem[]> {
+    return this.api.get<MediaItem[]>(ApiEndpoint.MEDIA, {
+      params: { filter, folderId: folderId ?? undefined },
+    });
   }
 
-  upload(files: File[]): Observable<MediaBulkUploadResult> {
+  folders(): Observable<MediaFolder[]> {
+    return this.api.get<MediaFolder[]>(ApiEndpoint.MEDIA_FOLDERS);
+  }
+
+  createFolder(body: CreateMediaFolderRequest): Observable<MediaFolder> {
+    return this.api.post<MediaFolder>(ApiEndpoint.MEDIA_FOLDERS, body);
+  }
+
+  upload(files: File[], folderId?: number | null): Observable<MediaBulkUploadResult> {
     const form = new FormData();
     for (const file of files) {
       form.append('files', file, file.name);
     }
-    return this.api.post<MediaBulkUploadResult>(ApiEndpoint.MEDIA, form);
+    return this.api.post<MediaBulkUploadResult>(ApiEndpoint.MEDIA, form, {
+      params: { folderId: folderId ?? undefined },
+    });
   }
 
   retry(mediaId: number, file: File): Observable<MediaItem> {
@@ -43,9 +57,9 @@ export class MediaService {
     });
   }
 
-  export(format: 'csv' | 'xlsx'): Observable<Blob> {
+  export(format: 'csv' | 'xlsx', folderId?: number | null): Observable<Blob> {
     return this.api.get<Blob>(ApiEndpoint.MEDIA_EXPORT, {
-      params: { format },
+      params: { format, folderId: folderId ?? undefined },
       responseType: 'blob',
     });
   }

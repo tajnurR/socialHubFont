@@ -2,6 +2,16 @@ export type MediaType = 'IMAGE' | 'VIDEO';
 export type MediaUploadStatus = 'UPLOADING' | 'UPLOADED' | 'FAILED';
 export type MediaFilter = 'ALL' | 'IMAGES' | 'VIDEOS' | 'UPLOADED' | 'FAILED' | 'RECENT';
 
+export interface MediaFolder {
+  folderId: number;
+  name: string;
+  googleDriveFolderId: string;
+  googleDriveUrl?: string | null;
+  mediaCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface MediaItem {
   mediaId: number;
   fileName: string;
@@ -11,6 +21,8 @@ export interface MediaItem {
   extension: string;
   fileSize: number;
   checksumSha256: string;
+  folderId?: number | null;
+  folderName?: string | null;
   googleDriveFileId?: string | null;
   googleDriveUrl?: string | null;
   directDownloadUrl?: string | null;
@@ -37,4 +49,8 @@ export interface MediaBulkUploadResult {
   duplicateCount: number;
   progressPercentage: number;
   items: MediaUploadItemResult[];
+}
+
+export interface CreateMediaFolderRequest {
+  name: string;
 }

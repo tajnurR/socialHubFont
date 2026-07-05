@@ -3,6 +3,7 @@ import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { NotificationService } from '../../core/services/notification.service';
 import { PageHeader } from '../../shared/components/page-header/page-header';
 import { MediaItem, MediaType } from '../../shared/models/media.model';
@@ -482,6 +483,7 @@ export class PostCreate implements OnInit, OnDestroy {
   private readonly publishing = inject(PublishingService);
   private readonly mediaLibraryService = inject(LibraryMediaService);
   private readonly notify = inject(NotificationService);
+  private readonly apiOrigin = environment.apiBaseUrl.replace(/\/api\/v1$/, '');
 
   protected readonly platformConfigs: PlatformConfig[] = [
     {
@@ -744,7 +746,7 @@ export class PostCreate implements OnInit, OnDestroy {
   }
 
   protected previewUrlForMedia(item: MediaItem): string | null {
-    return item.thumbnailUrl || item.directDownloadUrl || item.googleDriveUrl || null;
+    return item.mediaId ? `${this.apiOrigin}/api/v1/media/${item.mediaId}/download` : null;
   }
 
   protected platformAccounts(platform: SocialPlatform | null): SocialIntegration[] {
