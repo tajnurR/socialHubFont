@@ -8,6 +8,7 @@ import {
   CreatePostResponse,
   FacebookCredentialConfig,
   FacebookCredentialConfigRequest,
+  FacebookCredentialConfigUpdateRequest,
   FacebookCredentialStatus,
   FacebookExchangeResult,
   GoogleDriveAuthorizationUrl,
@@ -76,6 +77,21 @@ export class SocialIntegrationsService {
     body: FacebookCredentialConfigRequest,
   ): Observable<FacebookCredentialConfig> {
     return this.api.post<FacebookCredentialConfig>(ApiEndpoint.FACEBOOK_CREDENTIAL_CONFIGS, body);
+  }
+
+  updateFacebookCredentialConfig(
+    id: number,
+    body: FacebookCredentialConfigUpdateRequest,
+  ): Observable<FacebookCredentialConfig> {
+    return this.api.put<FacebookCredentialConfig>(ApiEndpoint.FACEBOOK_CREDENTIAL_CONFIG_BY_ID, body, {
+      pathParams: { id },
+    });
+  }
+
+  deleteFacebookCredentialConfig(id: number): Observable<void> {
+    return this.api.delete<void>(ApiEndpoint.FACEBOOK_CREDENTIAL_CONFIG_BY_ID, {
+      pathParams: { id },
+    });
   }
 
   /** Send the short-lived FB user token; get back selectable pages. */

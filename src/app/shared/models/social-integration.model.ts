@@ -39,12 +39,24 @@ export interface FacebookCredentialConfig {
   redirectUri?: string | null;
   scopes?: string | null;
   apiVersion?: string | null;
+  connected?: boolean;
+  createdAt?: string | null;
+  status?: 'ACTIVE' | 'DELETED';
 }
 
 /** Create another Facebook app config for the current user. */
 export interface FacebookCredentialConfigRequest {
   appId: string;
   appSecret: string;
+  label?: string | null;
+  redirectUri?: string | null;
+  scopes?: string | null;
+  apiVersion?: string | null;
+}
+
+export interface FacebookCredentialConfigUpdateRequest {
+  appId: string;
+  appSecret?: string | null;
   label?: string | null;
   redirectUri?: string | null;
   scopes?: string | null;

@@ -31,6 +31,7 @@ export enum ApiEndpoint {
   FACEBOOK_OAUTH_CONNECT_PAGES = '/integrations/facebook/connect/pages',
   FACEBOOK_CREDENTIALS = '/integrations/facebook/credentials',
   FACEBOOK_CREDENTIAL_CONFIGS = '/integrations/facebook/credentials/configs',
+  FACEBOOK_CREDENTIAL_CONFIG_BY_ID = '/integrations/facebook/credentials/configs/:id',
   FACEBOOK_PAGES = '/facebook/pages',
   FACEBOOK_PAGE_ANALYTICS = '/facebook/pages/:integrationId/analytics',
 
