@@ -6,7 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { NotificationService } from '../../core/services/notification.service';
 import { PageHeader } from '../../shared/components/page-header/page-header';
-import { MediaItem, MediaType } from '../../shared/models/media.model';
+import { MediaFolder, MediaItem, MediaType } from '../../shared/models/media.model';
 import {
   BulkUploadResult,
   CreatePostRequest,
@@ -198,6 +198,7 @@ interface SaveWorkflowState {
                     <button
                       type="button"
                       class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                      [disabled]="!uploadFolderId"
                       (click)="mediaInput.click()"
                     >
                       Choose file
@@ -221,6 +222,41 @@ interface SaveWorkflowState {
                   </div>
                 </div>
 
+                <div class="mt-3 grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <select
+                    class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500"
+                    [(ngModel)]="uploadFolderId"
+                  >
+                    <option [ngValue]="null">Select upload folder</option>
+                    @for (folder of mediaFolders(); track folder.folderId) {
+                      <option [ngValue]="folder.folderId">{{ folder.name }}</option>
+                    }
+                  </select>
+                  <button
+                    type="button"
+                    class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    (click)="showFolderForm.update((value) => !value)"
+                  >
+                    {{ showFolderForm() ? 'Cancel' : 'New folder' }}
+                  </button>
+                  @if (showFolderForm()) {
+                    <input
+                      [(ngModel)]="newFolderName"
+                      placeholder="Folder name"
+                      class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 sm:col-span-1"
+                      (keydown.enter)="createMediaFolder()"
+                    />
+                    <button
+                      type="button"
+                      class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+                      [disabled]="creatingFolder() || !newFolderName.trim()"
+                      (click)="createMediaFolder()"
+                    >
+                      {{ creatingFolder() ? 'Creating...' : 'Create' }}
+                    </button>
+                  }
+                </div>
+
                 <input
                   #mediaInput
                   type="file"
@@ -235,6 +271,7 @@ interface SaveWorkflowState {
                   [class.bg-indigo-50]="dragging()"
                   [class.border-red-300]="submitted() && mediaMissing()"
                   [class.border-slate-300]="!(submitted() && mediaMissing()) && !dragging()"
+                  [class.opacity-60]="!uploadFolderId && !hasSelectedMedia()"
                   (dragover)="onMediaDragOver($event)"
                   (dragleave)="onMediaDragLeave($event)"
                   (drop)="onMediaDrop($event)"
@@ -283,7 +320,9 @@ interface SaveWorkflowState {
                     </div>
                   } @else {
                     <div class="space-y-2 text-center text-sm text-slate-500">
-                      <p class="font-medium text-slate-700">Drop an image or video here</p>
+                      <p class="font-medium text-slate-700">
+                        {{ uploadFolderId ? 'Drop an image or video here' : 'Select an upload folder first' }}
+                      </p>
                       <p>Supported images: jpg, jpeg, png, webp, gif. Supported videos: mp4, mov, avi, webm.</p>
                     </div>
                   }
@@ -532,13 +571,18 @@ export class PostCreate implements OnInit, OnDestroy {
   protected readonly pendingUpload = signal<PendingUploadMedia | null>(null);
   protected readonly selectedLibraryMedia = signal<MediaItem | null>(null);
   protected readonly libraryMedia = signal<MediaItem[]>([]);
+  protected readonly mediaFolders = signal<MediaFolder[]>([]);
   protected readonly libraryLoading = signal(false);
   protected readonly showLibrary = signal(false);
+  protected readonly showFolderForm = signal(false);
+  protected readonly creatingFolder = signal(false);
   protected readonly dragging = signal(false);
   protected readonly mediaValidationError = signal<string | null>(null);
   protected readonly workflow = signal<SaveWorkflowState | null>(null);
 
   protected form: PostForm = this.emptyForm();
+  protected uploadFolderId: number | null = null;
+  protected newFolderName = '';
 
   protected readonly selectedConfig = computed(() =>
     this.platformConfigs.find((config) => config.platform === this.selectedPlatform()),
@@ -548,6 +592,7 @@ export class PostCreate implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.publishing.listAccounts().subscribe({ next: (items) => this.accounts.set(items) });
     this.publishing.listProducts().subscribe({ next: (items) => this.products.set(items) });
+    this.loadMediaFolders();
   }
 
   ngOnDestroy(): void {
@@ -682,6 +727,11 @@ export class PostCreate implements OnInit, OnDestroy {
 
   protected onMediaFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
+    if (!this.uploadFolderId) {
+      this.mediaValidationError.set('Select or create a media folder before choosing a file.');
+      input.value = '';
+      return;
+    }
     const file = input.files?.[0] ?? null;
     this.applySelectedMediaFile(file);
     input.value = '';
@@ -689,6 +739,9 @@ export class PostCreate implements OnInit, OnDestroy {
 
   protected onMediaDragOver(event: DragEvent): void {
     event.preventDefault();
+    if (!this.uploadFolderId) {
+      return;
+    }
     this.dragging.set(true);
   }
 
@@ -700,8 +753,34 @@ export class PostCreate implements OnInit, OnDestroy {
   protected onMediaDrop(event: DragEvent): void {
     event.preventDefault();
     this.dragging.set(false);
+    if (!this.uploadFolderId) {
+      this.mediaValidationError.set('Select or create a media folder before dropping a file.');
+      return;
+    }
     const file = event.dataTransfer?.files?.[0] ?? null;
     this.applySelectedMediaFile(file);
+  }
+
+  protected createMediaFolder(): void {
+    const name = this.newFolderName.trim();
+    if (!name) {
+      return;
+    }
+    this.creatingFolder.set(true);
+    this.mediaLibraryService.createFolder({ name }).subscribe({
+      next: (folder) => {
+        this.mediaFolders.update((items) => [...items, folder].sort((a, b) => a.name.localeCompare(b.name)));
+        this.uploadFolderId = folder.folderId;
+        this.newFolderName = '';
+        this.showFolderForm.set(false);
+        this.creatingFolder.set(false);
+        this.notify.success('Folder created.');
+      },
+      error: (err) => {
+        this.notify.error(err?.error?.message ?? 'Could not create media folder.');
+        this.creatingFolder.set(false);
+      },
+    });
   }
 
   protected toggleLibrary(): void {
@@ -808,7 +887,10 @@ export class PostCreate implements OnInit, OnDestroy {
       postId: draft.id,
     });
 
-    const result = await firstValueFrom(this.mediaLibraryService.upload([pending.file]));
+    if (!this.uploadFolderId) {
+      throw new Error('Select or create a media folder before uploading.');
+    }
+    const result = await firstValueFrom(this.mediaLibraryService.upload([pending.file], this.uploadFolderId));
     const item = result.items[0];
     if (!item) {
       throw new Error('Media upload did not return a result.');
@@ -909,6 +991,13 @@ export class PostCreate implements OnInit, OnDestroy {
     if (pending?.previewUrl) {
       URL.revokeObjectURL(pending.previewUrl);
     }
+  }
+
+  private loadMediaFolders(): void {
+    this.mediaLibraryService.folders().subscribe({
+      next: (items) => this.mediaFolders.set(items),
+      error: () => this.notify.error('Could not load media folders.'),
+    });
   }
 
   private formBody(mediaAssetId: number | null): CreatePostRequest {

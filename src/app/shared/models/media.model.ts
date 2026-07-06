@@ -1,6 +1,7 @@
 export type MediaType = 'IMAGE' | 'VIDEO';
 export type MediaUploadStatus = 'UPLOADING' | 'UPLOADED' | 'FAILED';
 export type MediaFilter = 'ALL' | 'IMAGES' | 'VIDEOS' | 'UPLOADED' | 'FAILED' | 'RECENT';
+export type MediaSortOrder = 'NEWEST' | 'OLDEST' | 'NAME_ASC' | 'NAME_DESC' | 'SIZE_DESC';
 
 export interface MediaFolder {
   folderId: number;
@@ -32,6 +33,14 @@ export interface MediaItem {
   relatedPostCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MediaPage {
+  items: MediaItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface MediaUploadItemResult {

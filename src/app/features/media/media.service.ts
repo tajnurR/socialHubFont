@@ -8,6 +8,8 @@ import {
   MediaFilter,
   MediaFolder,
   MediaItem,
+  MediaPage,
+  MediaSortOrder,
 } from '../../shared/models/media.model';
 
 @Injectable({ providedIn: 'root' })
@@ -16,8 +18,31 @@ export class MediaService {
 
   list(filter: MediaFilter = 'ALL', folderId?: number | null): Observable<MediaItem[]> {
     return this.api.get<MediaItem[]>(ApiEndpoint.MEDIA, {
-      params: { filter, folderId: folderId ?? undefined },
+      params: this.withOptionalFolderId({ filter }, folderId),
     });
+  }
+
+  page(options: {
+    filter: MediaFilter;
+    folderId?: number | null;
+    search?: string;
+    sortOrder: MediaSortOrder;
+    page: number;
+    size: number;
+  }): Observable<MediaPage> {
+    const params = this.withOptionalSearch(
+      this.withOptionalFolderId(
+        {
+          filter: options.filter,
+          sortOrder: options.sortOrder,
+          page: options.page,
+          size: options.size,
+        },
+        options.folderId,
+      ),
+      options.search,
+    );
+    return this.api.get<MediaPage>(ApiEndpoint.MEDIA_PAGE, { params });
   }
 
   folders(): Observable<MediaFolder[]> {
@@ -28,13 +53,13 @@ export class MediaService {
     return this.api.post<MediaFolder>(ApiEndpoint.MEDIA_FOLDERS, body);
   }
 
-  upload(files: File[], folderId?: number | null): Observable<MediaBulkUploadResult> {
+  upload(files: File[], folderId: number): Observable<MediaBulkUploadResult> {
     const form = new FormData();
     for (const file of files) {
       form.append('files', file, file.name);
     }
     return this.api.post<MediaBulkUploadResult>(ApiEndpoint.MEDIA, form, {
-      params: { folderId: folderId ?? undefined },
+      params: this.withOptionalFolderId({}, folderId),
     });
   }
 
@@ -57,10 +82,42 @@ export class MediaService {
     });
   }
 
-  export(format: 'csv' | 'xlsx', folderId?: number | null): Observable<Blob> {
+  export(format: 'csv' | 'xlsx', folderId?: number | null, mediaIds: number[] = []): Observable<Blob> {
     return this.api.get<Blob>(ApiEndpoint.MEDIA_EXPORT, {
-      params: { format, folderId: folderId ?? undefined },
+      params: this.withOptionalMediaIds(this.withOptionalFolderId({ format }, folderId), mediaIds),
       responseType: 'blob',
     });
+  }
+
+  private withOptionalFolderId<T extends Record<string, string | number | boolean | number[]>>(
+    params: T,
+    folderId?: number | null,
+  ): T & { folderId?: number } {
+    if (folderId == null) {
+      return params;
+    }
+    return { ...params, folderId };
+  }
+
+  private withOptionalMediaIds<T extends Record<string, string | number | boolean | number[]>>(
+    params: T,
+    mediaIds: number[],
+  ): T & { ids?: number[] } {
+    const ids = mediaIds.filter((id) => Number.isFinite(id) && id > 0);
+    if (!ids.length) {
+      return params;
+    }
+    return { ...params, ids };
+  }
+
+  private withOptionalSearch<T extends Record<string, string | number | boolean | number[]>>(
+    params: T,
+    search?: string,
+  ): T & { search?: string } {
+    const term = search?.trim();
+    if (!term) {
+      return params;
+    }
+    return { ...params, search: term };
   }
 }

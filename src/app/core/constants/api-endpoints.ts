@@ -45,6 +45,7 @@ export enum ApiEndpoint {
 
   // --- Media library ---
   MEDIA = '/media',
+  MEDIA_PAGE = '/media/page',
   MEDIA_FOLDERS = '/media/folders',
   MEDIA_BY_ID = '/media/:id',
   MEDIA_RETRY = '/media/:id/retry',
