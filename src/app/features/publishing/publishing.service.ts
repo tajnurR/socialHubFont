@@ -117,4 +117,12 @@ export class PublishingService {
       pathParams: { id: eventId },
     });
   }
+
+  attachPostsToSchedule(scheduleId: number, postIds: number[]): Observable<unknown> {
+    return this.api.post<unknown>(
+      ApiEndpoint.SCHEDULE_ATTACH_POSTS,
+      { postIds },
+      { pathParams: { id: scheduleId } },
+    );
+  }
 }

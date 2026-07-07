@@ -163,7 +163,9 @@ export class SchedulesService {
       name: draft.name.trim(),
       description: draft.description?.trim(),
       color: draft.color,
-      platforms: draft.platforms,
+      platforms: [draft.targetPlatform],
+      targetPlatform: draft.targetPlatform,
+      socialIntegrationId: draft.socialIntegrationId ?? undefined,
       status: asDraft ? 'draft' : draft.status,
       scheduleType: draft.scheduleType,
       daysOfWeek: draft.daysOfWeek,
@@ -171,6 +173,7 @@ export class SchedulesService {
       timezone: draft.timezone,
       startDate: draft.startDate,
       endDate: draft.endDate || undefined,
+      customIntervalHours: draft.customIntervalHours ?? 5,
       linkedPostIds: draft.posts.map((post) => post.id),
       totalPosts: 0,
       postedCount: 0,
@@ -184,6 +187,8 @@ export class SchedulesService {
       posts: draft.posts.map((post, index) => ({
         ...post,
         scheduleId: id,
+        platform: draft.targetPlatform,
+        socialIntegrationId: draft.socialIntegrationId ?? undefined,
         scheduledAt: post.scheduledAt || buildDateTime(draft.startDate, draft.postingTime, index),
         status:
           !asDraft && draft.status === 'active' && post.status === 'draft'
@@ -588,13 +593,16 @@ export class SchedulesService {
       description: template?.description ?? '',
       status: 'draft',
       color: template?.color ?? '#4f46e5',
-      platforms: template?.platforms ?? ['FACEBOOK'],
+      platforms: [template?.platforms?.[0] ?? 'FACEBOOK'],
+      targetPlatform: template?.platforms?.[0] ?? 'FACEBOOK',
+      socialIntegrationId: undefined,
       scheduleType: template?.scheduleType ?? 'weekly',
       daysOfWeek: template?.daysOfWeek ?? ['Mon', 'Wed', 'Fri'],
       postingTime: template?.postingTime ?? '20:00',
       timezone: 'Asia/Dhaka',
       startDate: start,
       endDate: '',
+      customIntervalHours: 5,
       dailyPostLimit: 2,
       linkedPostIds: [],
       notifications: { publishSuccess: true, failure: true, nextPostReminder: true },
@@ -623,12 +631,15 @@ export class SchedulesService {
       status: schedule.status === 'completed' ? 'draft' : schedule.status,
       color: schedule.color ?? '#4f46e5',
       platforms: [...schedule.platforms],
+      targetPlatform: schedule.targetPlatform ?? schedule.platforms[0] ?? 'FACEBOOK',
+      socialIntegrationId: schedule.socialIntegrationId,
       scheduleType: schedule.scheduleType,
       daysOfWeek: [...(schedule.daysOfWeek ?? [])],
       postingTime: schedule.postingTime,
       timezone: schedule.timezone,
       startDate: schedule.startDate,
       endDate: schedule.endDate ?? '',
+      customIntervalHours: schedule.customIntervalHours ?? 5,
       dailyPostLimit: schedule.dailyPostLimit,
       linkedPostIds: [...schedule.linkedPostIds],
       notifications: { ...schedule.notifications },
@@ -796,6 +807,9 @@ function normalize(schedule: Schedule): Schedule {
   )?.scheduledAt;
   return {
     ...schedule,
+    platforms: [schedule.targetPlatform ?? schedule.platforms[0] ?? 'FACEBOOK'],
+    targetPlatform: schedule.targetPlatform ?? schedule.platforms[0] ?? 'FACEBOOK',
+    customIntervalHours: schedule.customIntervalHours ?? 5,
     posts,
     linkedPostIds: posts.map((post) => post.id),
     totalPosts: posts.length,
@@ -947,6 +961,9 @@ interface ApiSchedule {
   description?: string | null;
   color?: string | null;
   platforms: SchedulePlatform[];
+  targetPlatform?: SchedulePlatform | null;
+  socialIntegrationId?: number | null;
+  targetAccountName?: string | null;
   status: string;
   scheduleType: string;
   daysOfWeek?: string[] | null;
@@ -954,6 +971,7 @@ interface ApiSchedule {
   timezone: string;
   startDate: string;
   endDate?: string | null;
+  customIntervalHours?: number | null;
   dailyPostLimit?: number | null;
   notifications?: Schedule['notifications'] | null;
   linkedPostIds?: number[] | null;
@@ -995,6 +1013,8 @@ interface ApiScheduleRequest {
   description?: string;
   color?: string;
   platforms: SchedulePlatform[];
+  targetPlatform: SchedulePlatform;
+  socialIntegrationId: number;
   status: ScheduleStatus;
   scheduleType: ScheduleType;
   daysOfWeek?: string[];
@@ -1002,6 +1022,7 @@ interface ApiScheduleRequest {
   timezone: string;
   startDate: string;
   endDate?: string;
+  customIntervalHours?: number | null;
   dailyPostLimit?: number | null;
   notifications: Schedule['notifications'];
   posts: ApiSchedulePostRequest[];
@@ -1044,7 +1065,10 @@ function apiToSchedule(api: ApiSchedule): Schedule {
     name: api.name,
     description: api.description ?? undefined,
     color: api.color ?? '#4f46e5',
-    platforms: api.platforms ?? ['FACEBOOK'],
+    platforms: [api.targetPlatform ?? api.platforms?.[0] ?? 'FACEBOOK'],
+    targetPlatform: api.targetPlatform ?? api.platforms?.[0] ?? 'FACEBOOK',
+    socialIntegrationId: api.socialIntegrationId ?? undefined,
+    targetAccountName: api.targetAccountName ?? undefined,
     status: toScheduleStatus(api.status),
     scheduleType: toScheduleType(api.scheduleType),
     daysOfWeek: api.daysOfWeek ?? [],
@@ -1052,6 +1076,7 @@ function apiToSchedule(api: ApiSchedule): Schedule {
     timezone: api.timezone,
     startDate: api.startDate,
     endDate: api.endDate ?? undefined,
+    customIntervalHours: api.customIntervalHours ?? 5,
     linkedPostIds: (api.linkedPostIds ?? posts.map((post) => Number(post.id)))
       .filter((id) => Number.isFinite(id))
       .map(String),
@@ -1111,7 +1136,9 @@ function scheduleToApiRequest(schedule: Schedule): ApiScheduleRequest {
     name: schedule.name,
     description: schedule.description,
     color: schedule.color,
-    platforms: schedule.platforms,
+    platforms: [schedule.targetPlatform],
+    targetPlatform: schedule.targetPlatform,
+    socialIntegrationId: schedule.socialIntegrationId!,
     status: schedule.status,
     scheduleType: schedule.scheduleType,
     daysOfWeek: schedule.daysOfWeek ?? [],
@@ -1119,6 +1146,7 @@ function scheduleToApiRequest(schedule: Schedule): ApiScheduleRequest {
     timezone: schedule.timezone,
     startDate: schedule.startDate,
     endDate: schedule.endDate,
+    customIntervalHours: schedule.customIntervalHours ?? 5,
     dailyPostLimit: schedule.dailyPostLimit ?? null,
     notifications: schedule.notifications,
     posts: schedule.posts.map((post, index) => ({
@@ -1222,7 +1250,9 @@ const MOCK_SCHEDULES: Schedule[] = [
     name: 'New Arrival Launch',
     description: 'A two-week content plan for catalog drops across visual channels.',
     color: '#4f46e5',
-    platforms: ['FACEBOOK', 'INSTAGRAM', 'TIKTOK'],
+    platforms: ['FACEBOOK'],
+    targetPlatform: 'FACEBOOK',
+    customIntervalHours: 5,
     status: 'active',
     scheduleType: 'weekly',
     daysOfWeek: ['Mon', 'Wed', 'Fri'],
@@ -1298,7 +1328,9 @@ const MOCK_SCHEDULES: Schedule[] = [
     name: 'Weekly Offer Campaign',
     description: 'Discount reminders, urgency posts, and weekend conversion pushes.',
     color: '#f97316',
-    platforms: ['FACEBOOK', 'INSTAGRAM', 'X'],
+    platforms: ['FACEBOOK'],
+    targetPlatform: 'FACEBOOK',
+    customIntervalHours: 5,
     status: 'paused',
     scheduleType: 'weekly',
     daysOfWeek: ['Thu', 'Fri', 'Sat'],
@@ -1362,7 +1394,9 @@ const MOCK_SCHEDULES: Schedule[] = [
     name: 'Monthly B2B Content Plan',
     description: 'Thought leadership and product education for professional audiences.',
     color: '#0f766e',
-    platforms: ['LINKEDIN', 'YOUTUBE'],
+    platforms: ['LINKEDIN'],
+    targetPlatform: 'LINKEDIN',
+    customIntervalHours: 5,
     status: 'active',
     scheduleType: 'monthly',
     daysOfWeek: ['Tue'],
@@ -1416,7 +1450,9 @@ const MOCK_SCHEDULES: Schedule[] = [
     name: 'Eid Campaign',
     description: 'A completed holiday plan with celebration posts and last-minute offers.',
     color: '#7c3aed',
-    platforms: ['FACEBOOK', 'INSTAGRAM', 'PINTEREST'],
+    platforms: ['FACEBOOK'],
+    targetPlatform: 'FACEBOOK',
+    customIntervalHours: 5,
     status: 'completed',
     scheduleType: 'custom',
     daysOfWeek: ['Fri', 'Sat', 'Sun'],

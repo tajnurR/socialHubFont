@@ -14,6 +14,9 @@ export interface Schedule {
   description?: string;
   color?: string;
   platforms: SchedulePlatform[];
+  targetPlatform: SchedulePlatform;
+  socialIntegrationId?: number;
+  targetAccountName?: string;
   status: ScheduleStatus;
   scheduleType: ScheduleType;
   daysOfWeek?: string[];
@@ -21,6 +24,7 @@ export interface Schedule {
   timezone: string;
   startDate: string;
   endDate?: string;
+  customIntervalHours?: number;
   linkedPostIds: string[];
   totalPosts: number;
   postedCount: number;
@@ -115,12 +119,15 @@ export interface ScheduleDraft {
   status: ScheduleStatus;
   color: string;
   platforms: SchedulePlatform[];
+  targetPlatform: SchedulePlatform;
+  socialIntegrationId?: number | null;
   scheduleType: ScheduleType;
   daysOfWeek: string[];
   postingTime: string;
   timezone: string;
   startDate: string;
   endDate?: string;
+  customIntervalHours?: number | null;
   dailyPostLimit?: number | null;
   linkedPostIds: string[];
   notifications: ScheduleNotifications;

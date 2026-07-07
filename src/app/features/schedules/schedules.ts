@@ -375,14 +375,17 @@ import { SchedulesService } from './schedules.service';
     </div>
 
     <ng-template #platformIcons let-platforms>
-      <div class="flex flex-wrap gap-1.5">
+      <div class="flex flex-wrap gap-2">
         @for (platform of platforms; track platform) {
           <span
-            class="flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-xs font-bold"
+            class="inline-flex min-h-8 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold"
             [ngClass]="platformTone(platform)"
             [title]="platformLabel(platform)"
           >
-            {{ platformIcon(platform) }}
+            <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/70 text-[11px] font-bold">
+              {{ platformIcon(platform) }}
+            </span>
+            <span>{{ platformLabel(platform) }}</span>
           </span>
         }
       </div>

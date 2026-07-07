@@ -98,6 +98,14 @@ Supported media columns in the template are `imageUrl`, `videoUrl`, and
 
 The post-management and schedules UI now reflect the safer publish lifecycle:
 
+- schedule create/edit selects one social media platform and one connected
+  posting account for the whole schedule
+- schedule create/edit uses a five-step drawer: basic info, posting time,
+  selected posts, publishing account, and review/save
+- custom schedules expose an hourly interval so multiple linked posts publish
+  sequentially across the day
+- all schedule types display linked posts in sequential publish order rather than
+  publishing multiple posts at the same timestamp
 - scheduled drafts move to `Pending`
 - the worker moves claimed posts to `Processing`
 - completed publishes become `Posted`

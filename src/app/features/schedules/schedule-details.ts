@@ -125,8 +125,12 @@ import { SchedulesService } from './schedules.service';
               </div>
               <div class="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
                 <div>
-                  <p class="text-xs text-slate-400">Platforms</p>
+                  <p class="text-xs text-slate-400">Platform</p>
                   <p class="font-medium text-slate-800">{{ platformLabels(s.platforms) }}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-slate-400">Posting account</p>
+                  <p class="font-medium text-slate-800">{{ s.targetAccountName || 'Not selected' }}</p>
                 </div>
                 <div>
                   <p class="text-xs text-slate-400">Frequency</p>
@@ -156,6 +160,14 @@ import { SchedulesService } from './schedules.service';
                   <p class="text-xs text-slate-400">Daily limit</p>
                   <p class="font-medium text-slate-800">{{ s.dailyPostLimit || 'None' }}</p>
                 </div>
+                @if (s.scheduleType === 'custom') {
+                  <div>
+                    <p class="text-xs text-slate-400">Interval</p>
+                    <p class="font-medium text-slate-800">
+                      Every {{ s.customIntervalHours || 1 }} hour(s)
+                    </p>
+                  </div>
+                }
                 <div>
                   <p class="text-xs text-slate-400">Completion</p>
                   <p class="font-medium text-slate-800">{{ completion(s) }}%</p>

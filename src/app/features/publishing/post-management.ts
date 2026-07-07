@@ -145,6 +145,52 @@ interface PostForm {
         </div>
       </section>
 
+      <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">Add selected posts to a schedule</p>
+            <p class="mt-1 text-xs text-slate-500">
+              {{ selectedCount() }} selected from {{ posts().length }} filtered post(s).
+            </p>
+          </div>
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto_auto] xl:min-w-[720px]">
+            <button
+              type="button"
+              class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+              [disabled]="posts().length === 0 || selectedCount() === posts().length"
+              (click)="selectAllFiltered()"
+            >
+              Select All Filtered
+            </button>
+            <button
+              type="button"
+              class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+              [disabled]="selectedCount() === 0"
+              (click)="clearSelection()"
+            >
+              Clear
+            </button>
+            <select
+              [(ngModel)]="selectedScheduleId"
+              class="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            >
+              <option [ngValue]="null">Choose schedule</option>
+              @for (schedule of schedules(); track schedule.id) {
+                <option [ngValue]="schedule.id">{{ schedule.name }}</option>
+              }
+            </select>
+            <button
+              type="button"
+              class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              [disabled]="selectedCount() === 0 || !selectedScheduleId || assigningToSchedule()"
+              (click)="assignSelectedToSchedule()"
+            >
+              {{ assigningToSchedule() ? 'Adding...' : 'Add to Schedule' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section class="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
         <div class="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <p class="text-sm font-medium text-slate-700">{{ posts().length }} post(s)</p>
@@ -169,11 +215,20 @@ interface PostForm {
             @for (post of pagedPosts(); track post.id) {
               <article class="space-y-3 px-4 py-4">
                 <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
+                  <div class="flex min-w-0 items-start gap-3">
+                    <input
+                      type="checkbox"
+                      class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600"
+                      [checked]="isSelected(post.id)"
+                      (change)="togglePostSelection(post.id, $event)"
+                      aria-label="Select post"
+                    />
+                    <div class="min-w-0">
                     <p class="font-mono text-xs text-slate-400">#{{ post.id }}</p>
                     <h3 class="mt-1 line-clamp-2 text-sm font-semibold text-slate-900">
                       {{ post.title || preview(post) }}
                     </h3>
+                    </div>
                   </div>
                   <span
                     class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium"
@@ -258,6 +313,16 @@ interface PostForm {
             <table class="w-full min-w-[1100px] text-left text-sm">
               <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
+                  <th class="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                      [checked]="allVisibleSelected()"
+                      [indeterminate]="someVisibleSelected()"
+                      (change)="toggleVisibleSelection($event)"
+                      aria-label="Select visible posts"
+                    />
+                  </th>
                   <th class="px-4 py-3">Post ID</th>
                   <th class="px-4 py-3">Post Title / Preview</th>
                   <th class="px-4 py-3">Platform</th>
@@ -273,6 +338,15 @@ interface PostForm {
               <tbody class="divide-y divide-slate-100">
                 @for (post of pagedPosts(); track post.id) {
                   <tr class="hover:bg-slate-50">
+                    <td class="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-slate-300 text-indigo-600"
+                        [checked]="isSelected(post.id)"
+                        (change)="togglePostSelection(post.id, $event)"
+                        aria-label="Select post"
+                      />
+                    </td>
                     <td class="px-4 py-3 font-mono text-xs text-slate-500">#{{ post.id }}</td>
                     <td class="max-w-xs px-4 py-3">
                       <p class="truncate font-medium text-slate-800">
@@ -333,7 +407,7 @@ interface PostForm {
                   </tr>
                 } @empty {
                   <tr>
-                    <td colspan="10" class="px-4 py-10 text-center text-sm text-slate-400">
+                    <td colspan="11" class="px-4 py-10 text-center text-sm text-slate-400">
                       No posts found.
                     </td>
                   </tr>
@@ -706,8 +780,11 @@ export class PostManagement implements OnInit {
   protected readonly schedules = signal<ScheduleEvent[]>([]);
   protected readonly products = signal<Product[]>([]);
   protected readonly loading = signal(true);
+  protected readonly selectedPostIds = signal<Set<number>>(new Set());
+  protected readonly assigningToSchedule = signal(false);
   protected readonly page = signal(1);
   protected pageSize = 10;
+  protected selectedScheduleId: number | null = null;
 
   protected readonly drawerOpen = signal(false);
   protected readonly selectedPlatform = signal<SocialPlatform | null>(null);
@@ -744,9 +821,18 @@ export class PostManagement implements OnInit {
   protected readonly totalPages = computed(() =>
     Math.max(1, Math.ceil(this.posts().length / this.pageSize)),
   );
+  protected readonly selectedCount = computed(() => this.selectedPostIds().size);
   protected readonly pagedPosts = computed(() => {
     const start = (this.page() - 1) * this.pageSize;
     return this.posts().slice(start, start + this.pageSize);
+  });
+  protected readonly allVisibleSelected = computed(() => {
+    const visible = this.pagedPosts();
+    return visible.length > 0 && visible.every((post) => this.selectedPostIds().has(post.id));
+  });
+  protected readonly someVisibleSelected = computed(() => {
+    const visible = this.pagedPosts();
+    return !this.allVisibleSelected() && visible.some((post) => this.selectedPostIds().has(post.id));
   });
   protected readonly selectedConfig = computed(() =>
     this.platformConfigs.find((config) => config.platform === this.selectedPlatform()),
@@ -775,6 +861,7 @@ export class PostManagement implements OnInit {
       .subscribe({
         next: (items) => {
           this.posts.set(items);
+          this.clearSelection();
           this.page.set(1);
           this.loading.set(false);
         },
@@ -898,6 +985,68 @@ export class PostManagement implements OnInit {
         this.loadPosts();
       },
       error: (err) => this.notify.error(err?.error?.message ?? 'Could not retry the post.'),
+    });
+  }
+
+  protected isSelected(postId: number): boolean {
+    return this.selectedPostIds().has(postId);
+  }
+
+  protected togglePostSelection(postId: number, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.selectedPostIds.update((current) => {
+      const next = new Set(current);
+      if (checked) {
+        next.add(postId);
+      } else {
+        next.delete(postId);
+      }
+      return next;
+    });
+  }
+
+  protected toggleVisibleSelection(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const visibleIds = this.pagedPosts().map((post) => post.id);
+    this.selectedPostIds.update((current) => {
+      const next = new Set(current);
+      for (const id of visibleIds) {
+        if (checked) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+      }
+      return next;
+    });
+  }
+
+  protected selectAllFiltered(): void {
+    this.selectedPostIds.set(new Set(this.posts().map((post) => post.id)));
+  }
+
+  protected clearSelection(): void {
+    this.selectedPostIds.set(new Set());
+  }
+
+  protected assignSelectedToSchedule(): void {
+    if (!this.selectedScheduleId || this.selectedCount() === 0) {
+      return;
+    }
+    const postIds = [...this.selectedPostIds()];
+    this.assigningToSchedule.set(true);
+    this.publishing.attachPostsToSchedule(this.selectedScheduleId, postIds).subscribe({
+      next: () => {
+        this.notify.success(`${postIds.length} post(s) added to schedule.`);
+        this.assigningToSchedule.set(false);
+        this.clearSelection();
+        this.loadOptions();
+        this.loadPosts();
+      },
+      error: (err) => {
+        this.notify.error(err?.error?.message ?? 'Could not add posts to the schedule.');
+        this.assigningToSchedule.set(false);
+      },
     });
   }
 

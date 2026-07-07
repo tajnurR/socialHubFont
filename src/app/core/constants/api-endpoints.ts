@@ -75,6 +75,7 @@ export enum ApiEndpoint {
   SCHEDULE_BY_ID = '/schedules/:id',
   SCHEDULE_DUPLICATE = '/schedules/:id/duplicate',
   SCHEDULE_TOGGLE_PAUSE = '/schedules/:id/toggle-pause',
+  SCHEDULE_ATTACH_POSTS = '/schedules/:id/posts',
   SCHEDULE_POST_QUICK_ACTION = '/schedules/:scheduleId/posts/:postId/quick-action',
   SCHEDULE_POST_RESCHEDULE = '/schedules/:scheduleId/posts/:postId/reschedule',
   SCHEDULE_TEMPLATES = '/schedules/templates',
