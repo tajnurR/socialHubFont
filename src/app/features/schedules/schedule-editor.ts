@@ -1,23 +1,19 @@
 import { Component, computed, effect, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NotificationService } from '../../core/services/notification.service';
-import { SocialIntegration } from '../../shared/models/social-integration.model';
 import {
   DAYS_OF_WEEK,
   PLATFORM_META,
   SCHEDULE_COLORS,
-  SCHEDULE_PLATFORMS,
   SCHEDULE_STATUSES,
   SCHEDULE_TYPES,
   Schedule,
   ScheduleDraft,
-  SchedulePlatform,
-  SchedulePost,
   ScheduleTemplate,
 } from './schedule.model';
 import { SchedulesService } from './schedules.service';
 
-type EditorStep = 'basic' | 'time' | 'posts' | 'account' | 'review';
+type EditorStep = 'basic' | 'time' | 'review';
 
 interface EditorStepConfig {
   id: EditorStep;
@@ -62,7 +58,7 @@ interface EditorStepConfig {
               Close
             </button>
           </div>
-          <div class="mt-5 grid grid-cols-1 gap-2 md:grid-cols-5">
+          <div class="mt-5 grid grid-cols-1 gap-2 md:grid-cols-3">
             @for (step of steps; track step.id; let i = $index) {
               <button
                 type="button"
@@ -186,83 +182,18 @@ interface EditorStepConfig {
               </div>
               }
 
-              @if (activeStep() === 'time' || activeStep() === 'account') {
+              @if (activeStep() === 'time') {
               <div class="rounded-lg border border-slate-200 bg-white p-5">
                 <div class="mb-4 flex items-center justify-between gap-3">
                   <div>
                     <h3 class="text-lg font-semibold text-slate-900">
-                      {{ activeStep() === 'time' ? 'Posting Time Settings' : 'Social Media & Account Selection' }}
+                      Posting Time Settings
                     </h3>
                     <p class="mt-1 text-sm text-slate-500">
-                      {{
-                        activeStep() === 'time'
-                          ? 'Define when posts should publish. Multiple posts are always published one by one.'
-                          : 'Choose where these posts will be published and which account will publish them.'
-                      }}
+                      Define when posts should publish. Multiple posts are always published one by one.
                     </p>
                   </div>
                 </div>
-
-                @if (activeStep() === 'account') {
-                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <label>
-                    <span class="text-sm font-medium text-slate-700">Social media platform</span>
-                    <span class="mt-1 block text-xs text-slate-500">
-                      Choose where these posts will be published.
-                    </span>
-                    <select
-                      [(ngModel)]="draft().targetPlatform"
-                      (ngModelChange)="onTargetPlatformChange($event)"
-                      class="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                      [class.border-red-300]="submitted() && !draft().targetPlatform"
-                      [class.border-slate-300]="!(submitted() && !draft().targetPlatform)"
-                    >
-                      @for (platform of platforms; track platform) {
-                        <option [value]="platform">{{ platformMeta[platform].label }}</option>
-                      }
-                    </select>
-                  </label>
-                  <label>
-                    <span class="text-sm font-medium text-slate-700">Posting account</span>
-                    <span class="mt-1 block text-xs text-slate-500">
-                      Select the account that will publish the scheduled posts.
-                    </span>
-                    <select
-                      [(ngModel)]="draft().socialIntegrationId"
-                      (ngModelChange)="applyScheduleTargetToPosts()"
-                      class="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                      [class.border-red-300]="submitted() && !draft().socialIntegrationId"
-                      [class.border-slate-300]="!(submitted() && !draft().socialIntegrationId)"
-                    >
-                      <option [ngValue]="undefined">Select connected account</option>
-                      @for (account of accountsFor(draft().targetPlatform); track account.id) {
-                        <option [ngValue]="account.id">{{ accountName(account) }}</option>
-                      }
-                    </select>
-                    @if (submitted() && !draft().socialIntegrationId) {
-                      <p class="mt-1 text-xs text-red-600">Posting account is required.</p>
-                    }
-                  </label>
-                </div>
-                <div class="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <p class="text-sm font-semibold text-slate-800">Selected publishing target</p>
-                  <div class="mt-3 flex items-center gap-3">
-                    <span
-                      class="flex h-10 w-10 items-center justify-center rounded-full border text-sm font-bold"
-                      [class.bg-blue-50]="draft().targetPlatform === 'FACEBOOK'"
-                      [class.text-blue-700]="draft().targetPlatform === 'FACEBOOK'"
-                    >
-                      {{ platformMeta[draft().targetPlatform].icon }}
-                    </span>
-                    <div>
-                      <p class="font-medium text-slate-900">{{ selectedPlatformLabel() }}</p>
-                      <p class="text-sm text-slate-500">{{ selectedAccountName() }}</p>
-                    </div>
-                  </div>
-                </div>
-                }
-
-                @if (activeStep() === 'time') {
                 <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
                   <label>
                     <span class="text-sm font-medium text-slate-700">Posting time</span>
@@ -365,83 +296,6 @@ interface EditorStepConfig {
                     />
                   </label>
                 </div>
-                }
-              </div>
-              }
-
-              @if (activeStep() === 'posts') {
-              <div class="rounded-lg border border-slate-200 bg-white p-5">
-                <div class="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <h3 class="text-lg font-semibold text-slate-900">Post Selection</h3>
-                    <p class="mt-1 text-sm text-slate-500">
-                      These posts will be published one by one based on your schedule timing.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                    (click)="addPost()"
-                  >
-                    Create new post
-                  </button>
-                </div>
-                <p class="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                  Drag posts to change the publishing order. Use the optional time override only
-                  when one post needs a different time of day.
-                </p>
-
-                <div class="space-y-2">
-                  @for (post of draft().posts; track post.id; let i = $index) {
-                    <div
-                      draggable="true"
-                      class="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 lg:grid-cols-[32px_minmax(0,1fr)_180px_130px_40px]"
-                      (dragstart)="dragIndex.set(i)"
-                      (dragover)="$event.preventDefault()"
-                      (drop)="dropPost(i)"
-                    >
-                      <span
-                        class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-slate-400"
-                        >☰</span
-                      >
-                      <label>
-                        <span class="sr-only">Caption</span>
-                        <input
-                          [(ngModel)]="post.caption"
-                          type="text"
-                          class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                          placeholder="Caption or title preview"
-                        />
-                      </label>
-                      <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                        <span class="font-medium">{{ platformMeta[draft().targetPlatform].label }}</span>
-                        <span class="block truncate text-xs text-slate-500">
-                          {{ selectedAccountName() }}
-                        </span>
-                      </div>
-                      <input
-                        [(ngModel)]="post.timeOverride"
-                        type="time"
-                        class="rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                        title="Optional individual post time override"
-                      />
-                      <button
-                        type="button"
-                        class="rounded-lg text-sm font-medium text-red-600 hover:bg-red-50"
-                        (click)="removePost(post.id)"
-                        aria-label="Remove post"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  } @empty {
-                    <div
-                      class="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500"
-                    >
-                      Link existing posts or create a new post to build the schedule.
-                    </div>
-                  }
-                </div>
               </div>
               }
 
@@ -469,45 +323,6 @@ interface EditorStepConfig {
                     <p class="mt-2 text-sm font-medium text-slate-900">{{ timingSummary() }}</p>
                     <p class="mt-2 text-sm text-slate-600">{{ scheduleTypeInstruction() }}</p>
                   </div>
-                  <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <p class="text-xs font-semibold uppercase text-slate-500">Publishing account</p>
-                    <div class="mt-3 flex items-center gap-3">
-                      <span class="flex h-10 w-10 items-center justify-center rounded-full border bg-white text-sm font-bold">
-                        {{ platformMeta[draft().targetPlatform].icon }}
-                      </span>
-                      <div>
-                        <p class="font-medium text-slate-900">{{ selectedPlatformLabel() }}</p>
-                        <p class="text-sm text-slate-600">{{ selectedAccountName() }}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                    <p class="text-xs font-semibold uppercase text-slate-500">Selected posts</p>
-                    <p class="mt-2 text-sm font-medium text-slate-900">
-                      {{ draft().posts.length }} post(s) selected
-                    </p>
-                    <p class="mt-2 text-sm text-slate-600">
-                      These posts will be published sequentially, not all at once.
-                    </p>
-                  </div>
-                </div>
-                <div class="mt-5 overflow-hidden rounded-lg border border-slate-200">
-                  <div class="grid grid-cols-[56px_minmax(0,1fr)_160px] bg-slate-50 px-3 py-2 text-xs font-semibold uppercase text-slate-500">
-                    <span>Order</span>
-                    <span>Post</span>
-                    <span>Override</span>
-                  </div>
-                  @for (post of draft().posts; track post.id; let i = $index) {
-                    <div class="grid grid-cols-[56px_minmax(0,1fr)_160px] items-center border-t border-slate-100 px-3 py-3 text-sm">
-                      <span class="font-mono text-xs text-slate-400">#{{ i + 1 }}</span>
-                      <span class="truncate text-slate-800">{{ post.caption || post.title }}</span>
-                      <span class="text-slate-500">{{ post.timeOverride || 'Schedule default' }}</span>
-                    </div>
-                  } @empty {
-                    <p class="border-t border-slate-100 px-3 py-6 text-center text-sm text-slate-400">
-                      No posts selected.
-                    </p>
-                  }
                 </div>
               </div>
               }
@@ -526,11 +341,11 @@ interface EditorStepConfig {
                   </div>
                   <div>
                     <p class="text-xs text-slate-400">Publishing target</p>
-                    <p class="text-slate-700">{{ selectedPlatformLabel() }} · {{ selectedAccountName() }}</p>
+                    <p class="text-slate-700">Each post uses its own selected platform and account.</p>
                   </div>
                   <div>
                     <p class="text-xs text-slate-400">Posts</p>
-                    <p class="text-slate-700">{{ draft().posts.length }} post(s), published one by one</p>
+                    <p class="text-slate-700">Add draft posts from the Add Post list page.</p>
                   </div>
                 </div>
               </div>
@@ -727,13 +542,13 @@ interface EditorStepConfig {
 export class ScheduleEditor {
   private readonly schedules = inject(SchedulesService);
   private readonly notifications = inject(NotificationService);
+  private loadedEditorKey: string | null = null;
 
   readonly open = input(false);
   readonly schedule = input<Schedule | null>(null);
   readonly saved = output<Schedule>();
   readonly cancel = output<void>();
 
-  protected readonly platforms = SCHEDULE_PLATFORMS;
   protected readonly statuses = SCHEDULE_STATUSES.filter((status) => status !== 'completed');
   protected readonly types = SCHEDULE_TYPES;
   protected readonly colors = SCHEDULE_COLORS;
@@ -754,26 +569,13 @@ export class ScheduleEditor {
       icon: '2',
     },
     {
-      id: 'posts',
-      title: 'Posts',
-      description: 'Order and captions',
-      icon: '3',
-    },
-    {
-      id: 'account',
-      title: 'Account',
-      description: 'Platform and page',
-      icon: '4',
-    },
-    {
       id: 'review',
       title: 'Review',
       description: 'Confirm and save',
-      icon: '5',
+      icon: '3',
     },
   ];
   protected readonly submitted = signal(false);
-  protected readonly dragIndex = signal<number | null>(null);
   protected readonly previewTemplate = signal<ScheduleTemplate | null>(null);
   protected readonly activeStep = signal<EditorStep>('basic');
 
@@ -810,9 +612,15 @@ export class ScheduleEditor {
   constructor() {
     effect(() => {
       if (!this.open()) {
+        this.loadedEditorKey = null;
         return;
       }
       const schedule = this.schedule();
+      const key = schedule?.id ?? 'new';
+      if (this.loadedEditorKey === key) {
+        return;
+      }
+      this.loadedEditorKey = key;
       this.submitted.set(false);
       this.activeStep.set('basic');
       this.draft.set(
@@ -894,15 +702,6 @@ export class ScheduleEditor {
       if (!draft.postingTime) return 'Posting time is required.';
       if (!this.validCustomInterval()) return 'Custom interval must be between 1 and 24 hours.';
     }
-    if (step === 'posts' && draft.status === 'active') {
-      if (draft.posts.some((post) => !post.caption.trim())) {
-        return 'Every active scheduled post needs a caption.';
-      }
-    }
-    if (step === 'account') {
-      if (!draft.targetPlatform) return 'Choose a social media platform.';
-      if (!draft.socialIntegrationId) return 'Choose a connected posting account.';
-    }
     return null;
   }
 
@@ -926,45 +725,6 @@ export class ScheduleEditor {
     return `${this.title(draft.scheduleType)} at ${draft.postingTime}, starting ${draft.startDate || 'not set'}.`;
   }
 
-  protected selectedPlatformLabel(): string {
-    return this.platformMeta[this.draft().targetPlatform].label;
-  }
-
-  protected isPlatformSelected(platform: SchedulePlatform): boolean {
-    return this.draft().platforms.includes(platform);
-  }
-
-  protected togglePlatform(platform: SchedulePlatform): void {
-    this.onTargetPlatformChange(platform);
-  }
-
-  protected onTargetPlatformChange(platform: SchedulePlatform): void {
-    const account = this.accountsFor(platform)[0];
-    this.draft.update((draft) => ({
-      ...draft,
-      targetPlatform: platform,
-      platforms: [platform],
-      socialIntegrationId: account?.id,
-      posts: draft.posts.map((post) => ({
-        ...post,
-        platform,
-        socialIntegrationId: account?.id,
-      })),
-    }));
-  }
-
-  protected applyScheduleTargetToPosts(): void {
-    this.draft.update((draft) => ({
-      ...draft,
-      platforms: [draft.targetPlatform],
-      posts: draft.posts.map((post) => ({
-        ...post,
-        platform: draft.targetPlatform,
-        socialIntegrationId: draft.socialIntegrationId ?? undefined,
-      })),
-    }));
-  }
-
   protected toggleDay(day: string): void {
     this.draft.update((draft) => ({
       ...draft,
@@ -974,80 +734,12 @@ export class ScheduleEditor {
     }));
   }
 
-  protected addPost(): void {
-    const draft = this.draft();
-    const platform = draft.targetPlatform;
-    const scheduledAt = new Date(`${draft.startDate}T${draft.postingTime}:00`).toISOString();
-    this.draft.update((current) => ({
-      ...current,
-      posts: [
-        ...current.posts,
-        {
-          id: crypto.randomUUID(),
-          scheduleId: current.id ?? '',
-          title: 'New post',
-          caption: '',
-          platform,
-          scheduledAt,
-          status: current.status === 'active' ? 'scheduled' : current.status === 'paused' ? 'paused' : 'draft',
-          socialIntegrationId: current.socialIntegrationId ?? undefined,
-          hashtags: [],
-          engagement: { likes: 0, comments: 0, shares: 0 },
-          hasMedia: false,
-          hasCaption: false,
-        },
-      ],
-    }));
-  }
-
-  protected onPostPlatformChange(post: SchedulePost): void {
-    const accounts = this.accountsFor(post.platform);
-    if (!accounts.some((account) => account.id === post.socialIntegrationId)) {
-      post.socialIntegrationId = accounts[0]?.id;
-    }
-  }
-
-  protected accountsFor(platform: SchedulePlatform): SocialIntegration[] {
-    return this.schedules.accounts().filter((account) => account.platform === platform);
-  }
-
-  protected selectedAccountName(): string {
-    const id = this.draft().socialIntegrationId;
-    const account = this.schedules.accounts().find((account) => account.id === id);
-    return account ? this.accountName(account) : 'No account selected';
-  }
-
   protected validCustomInterval(): boolean {
     if (this.draft().scheduleType !== 'custom') {
       return true;
     }
     const value = Number(this.draft().customIntervalHours);
     return Number.isInteger(value) && value >= 1 && value <= 24;
-  }
-
-  protected accountName(account: SocialIntegration): string {
-    return account.displayName || account.externalAccountId || `#${account.id}`;
-  }
-
-  protected removePost(id: string): void {
-    this.draft.update((draft) => ({
-      ...draft,
-      posts: draft.posts.filter((post) => post.id !== id),
-    }));
-  }
-
-  protected dropPost(toIndex: number): void {
-    const fromIndex = this.dragIndex();
-    this.dragIndex.set(null);
-    if (fromIndex == null || fromIndex === toIndex) {
-      return;
-    }
-    this.draft.update((draft) => {
-      const posts = [...draft.posts];
-      const [post] = posts.splice(fromIndex, 1);
-      posts.splice(toIndex, 0, post);
-      return { ...draft, posts };
-    });
   }
 
   protected applyBestTime(): void {
@@ -1074,20 +766,11 @@ export class ScheduleEditor {
     const draft = this.draft();
     if (
       !draft.name.trim() ||
-      !draft.targetPlatform ||
-      !draft.socialIntegrationId ||
       !draft.startDate ||
       !this.validCustomInterval()
     ) {
       return;
     }
-    if (!asDraft && draft.status === 'active') {
-      if (draft.posts.some((post) => !post.caption.trim())) {
-        this.notifications.error('Add a caption before scheduling posts for publishing.');
-        return;
-      }
-    }
-    this.applyScheduleTargetToPosts();
     const saved = this.schedules.save(this.draft(), asDraft);
     this.notifications.success(asDraft ? 'Schedule draft saved' : 'Schedule saved');
     this.saved.emit(saved);

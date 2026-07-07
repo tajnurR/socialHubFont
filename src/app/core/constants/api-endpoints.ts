@@ -63,6 +63,7 @@ export enum ApiEndpoint {
   POSTS_BULK_UPLOAD = '/posts/bulk-upload',
   POST_PUBLISH = '/posts/:id/publish',
   POST_RETRY = '/posts/:id/retry',
+  POST_CLONE = '/posts/:id/clone',
 
   // --- Products ---
   PRODUCTS = '/products',
@@ -78,6 +79,8 @@ export enum ApiEndpoint {
   SCHEDULE_ATTACH_POSTS = '/schedules/:id/posts',
   SCHEDULE_POST_QUICK_ACTION = '/schedules/:scheduleId/posts/:postId/quick-action',
   SCHEDULE_POST_RESCHEDULE = '/schedules/:scheduleId/posts/:postId/reschedule',
+  SCHEDULE_POST_DETACH = '/schedules/:scheduleId/posts/:postId',
+  SCHEDULE_POST_TIME_OVERRIDE = '/schedules/:scheduleId/posts/:postId/time-override',
   SCHEDULE_TEMPLATES = '/schedules/templates',
 
   // --- Planned platform endpoints (backend stubs not implemented yet) ---

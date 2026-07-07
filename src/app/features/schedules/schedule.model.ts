@@ -62,6 +62,7 @@ export interface SchedulePost {
   hasMedia: boolean;
   hasCaption: boolean;
   timeOverride?: string;
+  sortOrder?: number;
 }
 
 export interface ScheduleNotifications {

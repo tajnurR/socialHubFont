@@ -158,14 +158,16 @@ export class SchedulesService {
     const now = new Date().toISOString();
     const id = draft.id ?? crypto.randomUUID();
     const existing = this.schedule(id);
+    const platforms = platformsForDraft(draft);
+    const targetPlatform = platforms[0];
     const schedule: Schedule = normalize({
       id,
       name: draft.name.trim(),
       description: draft.description?.trim(),
       color: draft.color,
-      platforms: [draft.targetPlatform],
-      targetPlatform: draft.targetPlatform,
-      socialIntegrationId: draft.socialIntegrationId ?? undefined,
+      platforms,
+      targetPlatform,
+      socialIntegrationId: undefined,
       status: asDraft ? 'draft' : draft.status,
       scheduleType: draft.scheduleType,
       daysOfWeek: draft.daysOfWeek,
@@ -184,19 +186,7 @@ export class SchedulesService {
       updatedAt: now,
       dailyPostLimit: draft.dailyPostLimit ?? undefined,
       notifications: draft.notifications,
-      posts: draft.posts.map((post, index) => ({
-        ...post,
-        scheduleId: id,
-        platform: draft.targetPlatform,
-        socialIntegrationId: draft.socialIntegrationId ?? undefined,
-        scheduledAt: post.scheduledAt || buildDateTime(draft.startDate, draft.postingTime, index),
-        status:
-          !asDraft && draft.status === 'active' && post.status === 'draft'
-            ? 'scheduled'
-            : asDraft
-              ? 'draft'
-              : post.status,
-      })),
+      posts: existing?.posts ?? [],
     });
 
     this._schedules.update((items) => {
@@ -374,6 +364,82 @@ export class SchedulesService {
       }),
     );
     this.persistReschedule(scheduleId, postId, scheduledAt);
+  }
+
+  detachPost(scheduleId: string, postId: string): void {
+    this._schedules.update((items) =>
+      items.map((schedule) =>
+        schedule.id === scheduleId
+          ? normalize({
+              ...schedule,
+              posts: schedule.posts.filter((post) => post.id !== postId),
+              updatedAt: new Date().toISOString(),
+            })
+          : schedule,
+      ),
+    );
+    const numericScheduleId = numericIdOrNull(scheduleId);
+    const numericPostId = numericIdOrNull(postId);
+    if (!this.backendAvailable || !numericScheduleId || !numericPostId) {
+      return;
+    }
+    this.api
+      .delete<ApiSchedule>(ApiEndpoint.SCHEDULE_POST_DETACH, {
+        pathParams: { scheduleId: numericScheduleId, postId: numericPostId },
+      })
+      .pipe(
+        tap((saved) => this.upsert(apiToSchedule(saved))),
+        catchError(() => {
+          this.backendAvailable = false;
+          return of(null);
+        }),
+      )
+      .subscribe();
+  }
+
+  setPostTimeOverride(scheduleId: string, postId: string, timeOverride: string | null): void {
+    const schedule = this.schedule(scheduleId);
+    const post = schedule?.posts.find((item) => item.id === postId);
+    const scheduledAt = schedule && post
+      ? buildDateTime(schedule.startDate, timeOverride || schedule.postingTime, post.sortOrder ?? 0)
+      : undefined;
+    this._schedules.update((items) =>
+      items.map((schedule) => {
+        if (schedule.id !== scheduleId) {
+          return schedule;
+        }
+        const posts = schedule.posts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                timeOverride: timeOverride ?? undefined,
+                scheduledAt: scheduledAt ?? post.scheduledAt,
+                status: 'pending' as SchedulePostStatus,
+              }
+            : post,
+        );
+        return normalize({ ...schedule, posts, updatedAt: new Date().toISOString() });
+      }),
+    );
+    const numericScheduleId = numericIdOrNull(scheduleId);
+    const numericPostId = numericIdOrNull(postId);
+    if (!this.backendAvailable || !numericScheduleId || !numericPostId) {
+      return;
+    }
+    this.api
+      .post<ApiSchedule>(
+        ApiEndpoint.SCHEDULE_POST_TIME_OVERRIDE,
+        { timeOverride },
+        { pathParams: { scheduleId: numericScheduleId, postId: numericPostId } },
+      )
+      .pipe(
+        tap((saved) => this.upsert(apiToSchedule(saved))),
+        catchError(() => {
+          this.backendAvailable = false;
+          return of(null);
+        }),
+      )
+      .subscribe();
   }
 
   reorderPosts(scheduleId: string, fromIndex: number, toIndex: number): void {
@@ -606,20 +672,7 @@ export class SchedulesService {
       dailyPostLimit: 2,
       linkedPostIds: [],
       notifications: { publishSuccess: true, failure: true, nextPostReminder: true },
-      posts: [
-        draftPost(
-          'Product highlight',
-          'Showcase the main offer with a clear CTA.',
-          template?.platforms?.[0] ?? 'FACEBOOK',
-          buildDateTime(start, template?.postingTime ?? '20:00', 0),
-        ),
-        draftPost(
-          'Customer proof',
-          'Share a review and invite comments.',
-          template?.platforms?.[1] ?? 'INSTAGRAM',
-          buildDateTime(start, template?.postingTime ?? '20:00', 1),
-        ),
-      ],
+      posts: [],
     };
   }
 
@@ -643,7 +696,7 @@ export class SchedulesService {
       dailyPostLimit: schedule.dailyPostLimit,
       linkedPostIds: [...schedule.linkedPostIds],
       notifications: { ...schedule.notifications },
-      posts: schedule.posts.map((post) => ({ ...post })),
+      posts: [],
     };
   }
 
@@ -805,10 +858,11 @@ function normalize(schedule: Schedule): Schedule {
       (post.status === 'pending' || post.status === 'scheduled') &&
       new Date(post.scheduledAt).getTime() >= Date.now(),
   )?.scheduledAt;
+  const platforms = uniquePlatforms(posts.map((post) => post.platform), schedule.platforms, schedule.targetPlatform);
   return {
     ...schedule,
-    platforms: [schedule.targetPlatform ?? schedule.platforms[0] ?? 'FACEBOOK'],
-    targetPlatform: schedule.targetPlatform ?? schedule.platforms[0] ?? 'FACEBOOK',
+    platforms,
+    targetPlatform: schedule.targetPlatform ?? platforms[0],
     customIntervalHours: schedule.customIntervalHours ?? 5,
     posts,
     linkedPostIds: posts.map((post) => post.id),
@@ -818,6 +872,18 @@ function normalize(schedule: Schedule): Schedule {
     failedCount,
     nextPostAt,
   };
+}
+
+function uniquePlatforms(
+  postPlatforms: Array<SchedulePlatform | undefined>,
+  schedulePlatforms: SchedulePlatform[],
+  targetPlatform?: SchedulePlatform,
+): SchedulePlatform[] {
+  const values = [...postPlatforms, ...schedulePlatforms, targetPlatform].filter(
+    (platform): platform is SchedulePlatform => Boolean(platform),
+  );
+  const unique = [...new Set(values)];
+  return unique.length ? unique : ['FACEBOOK'];
 }
 
 function template(
@@ -1013,8 +1079,8 @@ interface ApiScheduleRequest {
   description?: string;
   color?: string;
   platforms: SchedulePlatform[];
-  targetPlatform: SchedulePlatform;
-  socialIntegrationId: number;
+  targetPlatform?: SchedulePlatform | null;
+  socialIntegrationId?: number | null;
   status: ScheduleStatus;
   scheduleType: ScheduleType;
   daysOfWeek?: string[];
@@ -1124,6 +1190,7 @@ function apiToPost(api: ApiSchedulePost, scheduleId: string): SchedulePost {
     hasMedia: Boolean(mediaUrl),
     hasCaption: caption.trim().length > 0,
     timeOverride: api.timeOverride ? trimTime(api.timeOverride) : undefined,
+    sortOrder: api.sortOrder ?? 0,
   };
 }
 
@@ -1136,9 +1203,9 @@ function scheduleToApiRequest(schedule: Schedule): ApiScheduleRequest {
     name: schedule.name,
     description: schedule.description,
     color: schedule.color,
-    platforms: [schedule.targetPlatform],
-    targetPlatform: schedule.targetPlatform,
-    socialIntegrationId: schedule.socialIntegrationId!,
+    platforms: schedule.platforms.length ? schedule.platforms : [schedule.targetPlatform],
+    targetPlatform: schedule.targetPlatform ?? schedule.platforms[0] ?? null,
+    socialIntegrationId: null,
     status: schedule.status,
     scheduleType: schedule.scheduleType,
     daysOfWeek: schedule.daysOfWeek ?? [],
@@ -1149,22 +1216,21 @@ function scheduleToApiRequest(schedule: Schedule): ApiScheduleRequest {
     customIntervalHours: schedule.customIntervalHours ?? 5,
     dailyPostLimit: schedule.dailyPostLimit ?? null,
     notifications: schedule.notifications,
-    posts: schedule.posts.map((post, index) => ({
-      id: numericIdOrNull(post.id),
-      title: post.title,
-      caption: post.caption,
-      platform: post.platform,
-      scheduledAt: post.scheduledAt,
-      status: postStatusToApi(post.status),
-      socialIntegrationId: post.socialIntegrationId ?? null,
-      mediaUrl: post.mediaUrl ?? post.thumbnailUrl ?? null,
-      link: post.link ?? null,
-      hashtags: post.hashtags ?? [],
-      cta: post.cta ?? null,
-      timeOverride: post.timeOverride ?? null,
-      sortOrder: index,
-    })),
+    posts: [],
   };
+}
+
+function platformsForDraft(draft: ScheduleDraft): SchedulePlatform[] {
+  const platforms = draft.posts.map((post) => post.platform).filter(Boolean);
+  const unique = [...new Set(platforms)];
+  if (unique.length) {
+    return unique;
+  }
+  return draft.platforms.length ? draft.platforms : [draft.targetPlatform ?? 'FACEBOOK'];
+}
+
+function isPendingSchedulePost(post: SchedulePost): boolean {
+  return post.status === 'pending';
 }
 
 function apiToTemplate(api: ApiScheduleTemplate): ScheduleTemplate {

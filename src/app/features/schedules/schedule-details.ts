@@ -129,8 +129,8 @@ import { SchedulesService } from './schedules.service';
                   <p class="font-medium text-slate-800">{{ platformLabels(s.platforms) }}</p>
                 </div>
                 <div>
-                  <p class="text-xs text-slate-400">Posting account</p>
-                  <p class="font-medium text-slate-800">{{ s.targetAccountName || 'Not selected' }}</p>
+                  <p class="text-xs text-slate-400">Posting accounts</p>
+                  <p class="font-medium text-slate-800">Set on each post</p>
                 </div>
                 <div>
                   <p class="text-xs text-slate-400">Frequency</p>
@@ -223,7 +223,7 @@ import { SchedulesService } from './schedules.service';
                 <div>
                   <h2 class="font-semibold text-slate-900">Linked posts</h2>
                   <p class="text-xs text-slate-500">
-                    Table and timeline view for all posts in this schedule.
+                    Waiting posts only. Published posts stay in post history.
                   </p>
                 </div>
                 <select
@@ -246,8 +246,6 @@ import { SchedulesService } from './schedules.service';
                       <th class="px-3 py-3">Platform</th>
                       <th class="px-3 py-3">Scheduled</th>
                       <th class="px-3 py-3">Status</th>
-                      <th class="px-3 py-3">Published</th>
-                      <th class="px-3 py-3">Engagement</th>
                       <th class="px-3 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -292,53 +290,38 @@ import { SchedulesService } from './schedules.service';
                             >{{ postStatusLabel(post.status) }}</span
                           >
                         </td>
-                        <td class="px-3 py-3 text-slate-600">
-                          {{ post.publishedAt ? (post.publishedAt | date: 'medium') : '—' }}
-                        </td>
-                        <td class="px-3 py-3 text-slate-600">
-                          {{ engagement(post) | number }} total
-                        </td>
                         <td class="px-3 py-3 text-right">
-                          <div class="flex flex-wrap justify-end gap-1">
-                            @if (canQuickAction(post)) {
+                          <div class="flex flex-wrap items-center justify-end gap-2">
+                            <input
+                              type="time"
+                              class="w-28 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                              [ngModel]="customTimeValue(post)"
+                              (ngModelChange)="customTimes[post.id] = $event"
+                              title="Custom posting time"
+                            />
+                            <button
+                              type="button"
+                              class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
+                              (click)="setCustomTime(post)"
+                            >
+                              Set Time
+                            </button>
+                            @if (post.timeOverride) {
                               <button
                                 type="button"
                                 class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
-                                (click)="quick(post, 'tonight')"
+                                (click)="clearCustomTime(post)"
                               >
-                                Post Tonight
-                              </button>
-                              <button
-                                type="button"
-                                class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
-                                (click)="quick(post, 'tomorrow')"
-                              >
-                                Move to Tomorrow
-                              </button>
-                              <button
-                                type="button"
-                                class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
-                                (click)="quick(post, 'best')"
-                              >
-                                Next Best Time
-                              </button>
-                              @if (post.status === 'failed') {
-                                <button
-                                  type="button"
-                                  class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
-                                  (click)="quick(post, 'retry')"
-                                >
-                                  Retry Post
-                                </button>
-                              }
-                              <button
-                                type="button"
-                                class="rounded-lg px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                                (click)="skip(post)"
-                              >
-                                Skip Post
+                                Use Default
                               </button>
                             }
+                            <button
+                              type="button"
+                              class="rounded-lg border border-red-100 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                              (click)="removeFromSchedule(post)"
+                            >
+                              Remove
+                            </button>
                             <button
                               type="button"
                               class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
@@ -347,6 +330,12 @@ import { SchedulesService } from './schedules.service';
                               Preview
                             </button>
                           </div>
+                        </td>
+                      </tr>
+                    } @empty {
+                      <tr>
+                        <td colspan="6" class="px-3 py-8 text-center text-sm text-slate-400">
+                          No posts are waiting for this schedule. Add draft posts from the Add Post list.
                         </td>
                       </tr>
                     }
@@ -550,6 +539,7 @@ export class ScheduleDetails implements OnInit {
   protected readonly editorOpen = signal(false);
   protected readonly moreOpen = signal(false);
   protected readonly dragPostId = signal<string | null>(null);
+  protected customTimes: Record<string, string> = {};
 
   protected readonly schedule = computed(() => this.schedules.schedule(this.id()));
   protected filteredPosts(): SchedulePost[] {
@@ -558,7 +548,9 @@ export class ScheduleDetails implements OnInit {
       return [];
     }
     return schedule.posts.filter(
-      (post) => this.platformFilter === 'all' || post.platform === this.platformFilter,
+      (post) =>
+        this.isWaitingPost(post) &&
+        (this.platformFilter === 'all' || post.platform === this.platformFilter),
     );
   }
   protected readonly bestTimes = computed(() => {
@@ -579,7 +571,7 @@ export class ScheduleDetails implements OnInit {
       return [];
     }
     const groups = new Map<string, SchedulePost[]>();
-    for (const post of schedule.posts) {
+    for (const post of schedule.posts.filter((item) => this.isWaitingPost(item))) {
       const day = post.scheduledAt.slice(0, 10);
       groups.set(day, [...(groups.get(day) ?? []), post]);
     }
@@ -720,6 +712,52 @@ export class ScheduleDetails implements OnInit {
 
   protected canQuickAction(post: SchedulePost): boolean {
     return ['pending', 'scheduled', 'not_posted', 'failed', 'paused'].includes(post.status);
+  }
+
+  protected isWaitingPost(post: SchedulePost): boolean {
+    return ['pending', 'scheduled', 'not_posted', 'failed', 'paused'].includes(post.status);
+  }
+
+  protected customTimeValue(post: SchedulePost): string {
+    return this.customTimes[post.id] ?? post.timeOverride ?? this.timeFromIso(post.scheduledAt);
+  }
+
+  protected setCustomTime(post: SchedulePost): void {
+    const schedule = this.schedule();
+    if (!schedule) {
+      return;
+    }
+    const value = this.customTimes[post.id] ?? post.timeOverride ?? this.timeFromIso(post.scheduledAt);
+    this.schedules.setPostTimeOverride(schedule.id, post.id, value);
+    this.notifications.success('Custom posting time saved.');
+  }
+
+  protected clearCustomTime(post: SchedulePost): void {
+    const schedule = this.schedule();
+    if (!schedule) {
+      return;
+    }
+    delete this.customTimes[post.id];
+    this.schedules.setPostTimeOverride(schedule.id, post.id, null);
+    this.notifications.success('Post will use the schedule default time.');
+  }
+
+  protected async removeFromSchedule(post: SchedulePost): Promise<void> {
+    const schedule = this.schedule();
+    if (!schedule) {
+      return;
+    }
+    const ok = await this.confirm.ask(`Remove ${post.title} from this schedule?`, 'Remove post', 'Remove');
+    if (!ok) {
+      return;
+    }
+    this.schedules.detachPost(schedule.id, post.id);
+    this.notifications.success('Post removed from schedule.');
+  }
+
+  protected timeFromIso(value: string): string {
+    const date = new Date(value);
+    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   }
 
   protected engagement(post: SchedulePost): number {

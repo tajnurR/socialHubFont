@@ -1,5 +1,5 @@
 import { NgClass } from '@angular/common';
-import { Component, computed, inject, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -10,8 +10,8 @@ import { MediaFolder, MediaItem, MediaType } from '../../shared/models/media.mod
 import {
   BulkUploadResult,
   CreatePostRequest,
+  PostResponse,
   Product,
-  UpdatePostRequest,
 } from '../../shared/models/publishing.model';
 import { SocialIntegration } from '../../shared/models/social-integration.model';
 import { SocialPlatform } from '../../shared/models/social-platform.model';
@@ -30,9 +30,14 @@ interface PlatformConfig {
 interface PostForm {
   title: string;
   content: string;
-  socialIntegrationId: number | null;
   link: string;
   productId: number | null;
+}
+
+interface PlatformTarget {
+  id: string;
+  platform: SocialPlatform | null;
+  socialIntegrationId: number | null;
 }
 
 interface PendingUploadMedia {
@@ -57,7 +62,7 @@ interface SaveWorkflowState {
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <app-page-header
           title="Create Post"
-          subtitle="Choose a platform, then add a single post or upload posts in bulk."
+          subtitle="Create one post and prepare it for one or more connected accounts."
         />
         <a
           routerLink="/posts"
@@ -67,74 +72,100 @@ interface SaveWorkflowState {
         </a>
       </div>
 
-      <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 class="font-semibold text-slate-900">Select platform</h2>
-            <p class="mt-1 text-sm text-slate-500">
-              Forms and upload validation change based on the selected social network.
-            </p>
-          </div>
-          @if (selectedConfig(); as config) {
-            <span class="rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700">
-              {{ config.label }}
-            </span>
-          }
-        </div>
-
-        <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          @for (config of platformConfigs; track config.platform) {
-            <button
-              type="button"
-              class="min-h-28 rounded-lg border p-4 text-left transition"
-              [ngClass]="
-                selectedPlatform() === config.platform
-                  ? 'border-indigo-300 bg-indigo-50'
-                  : 'border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50'
-              "
-              (click)="selectPlatform(config.platform)"
-            >
-              <p class="font-semibold text-slate-900">{{ config.label }}</p>
-              <p class="mt-1 text-xs text-slate-500">{{ config.accountLabel }}</p>
-              <p class="mt-3 text-xs font-medium text-indigo-600">
-                {{ platformAccounts(config.platform).length }} connected
-              </p>
-            </button>
-          }
-        </div>
-      </section>
-
-      @if (selectedConfig(); as config) {
-        <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
           <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <div class="mb-4">
               <h2 class="font-semibold text-slate-900">Single post</h2>
               <p class="mt-1 text-sm text-slate-500">
-                Create one {{ config.label }} draft, then upload or attach media as needed.
+                The same content is saved as one draft per selected platform/account combination.
               </p>
             </div>
 
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <label class="sm:col-span-2">
-                <span class="text-sm font-medium text-slate-700">{{ config.accountLabel }}</span>
-                <select
-                  [(ngModel)]="form.socialIntegrationId"
-                  class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-                  [class.border-red-300]="submitted() && !form.socialIntegrationId"
-                  [class.border-slate-300]="!(submitted() && !form.socialIntegrationId)"
-                >
-                  <option [ngValue]="null">Select account</option>
-                  @for (account of selectedAccounts(); track account.id) {
-                    <option [ngValue]="account.id">{{ accountName(account) }}</option>
+              <section class="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 class="text-sm font-semibold text-slate-900">Publishing Platforms & Accounts</h3>
+                    <p class="mt-1 text-sm text-slate-500">
+                      Choose where this post will be published. You can select the same platform multiple times if you want to publish through different connected accounts.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    (click)="addTarget()"
+                  >
+                    Add Account
+                  </button>
+                </div>
+
+                <div class="mt-4 space-y-3">
+                  @for (target of targets(); track target.id; let index = $index) {
+                    <div class="rounded-lg border border-slate-200 bg-white p-3">
+                      <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,180px)_minmax(0,1fr)_auto]">
+                        <label>
+                          <span class="text-xs font-medium text-slate-500">Social Media Platform</span>
+                          <select
+                            [ngModel]="target.platform"
+                            (ngModelChange)="updateTargetPlatform(target.id, $event)"
+                            class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                            [class.border-red-300]="submitted() && !target.platform"
+                            [class.border-slate-300]="!(submitted() && !target.platform)"
+                          >
+                            <option [ngValue]="null">Select platform</option>
+                            @for (config of platformConfigs; track config.platform) {
+                              <option [ngValue]="config.platform">{{ config.label }}</option>
+                            }
+                          </select>
+                          <p class="mt-1 text-xs text-slate-500">Choose where this draft will be prepared.</p>
+                        </label>
+
+                        <label>
+                          <span class="text-xs font-medium text-slate-500">Connected Account</span>
+                          <select
+                            [ngModel]="target.socialIntegrationId"
+                            (ngModelChange)="updateTargetAccount(target.id, $event)"
+                            class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+                            [class.border-red-300]="submitted() && (!target.socialIntegrationId || duplicateTarget(target))"
+                            [class.border-slate-300]="!(submitted() && (!target.socialIntegrationId || duplicateTarget(target)))"
+                            [disabled]="!target.platform"
+                          >
+                            <option [ngValue]="null">Select connected account</option>
+                            @for (account of platformAccounts(target.platform); track account.id) {
+                              <option [ngValue]="account.id">{{ accountName(account) }}</option>
+                            }
+                          </select>
+                          <p class="mt-1 text-xs text-slate-500">Select the account that will publish this draft.</p>
+                        </label>
+
+                        <button
+                          type="button"
+                          class="self-end rounded-lg border border-red-100 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
+                          [disabled]="targets().length === 1"
+                          (click)="removeTarget(target.id)"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      @if (submitted() && !target.platform) {
+                        <p class="mt-2 text-xs text-red-600">Platform is required for target {{ index + 1 }}.</p>
+                      } @else if (submitted() && !target.socialIntegrationId) {
+                        <p class="mt-2 text-xs text-red-600">Connected account is required for target {{ index + 1 }}.</p>
+                      } @else if (submitted() && duplicateTarget(target)) {
+                        <p class="mt-2 text-xs text-red-600">This platform/account combination is already selected.</p>
+                      }
+                    </div>
                   }
-                </select>
-                @if (submitted() && !form.socialIntegrationId) {
-                  <p class="mt-1 text-xs text-red-600">Target page/account is required.</p>
+                </div>
+
+                @if (submitted() && targetValidationError()) {
+                  <p class="mt-3 text-xs text-red-600">{{ targetValidationError() }}</p>
                 }
-              </label>
+              </section>
 
               <label>
-                <span class="text-sm font-medium text-slate-700">{{ config.titleLabel }}</span>
+                <span class="text-sm font-medium text-slate-700">Post Title</span>
                 <input
                   [(ngModel)]="form.title"
                   class="mt-1 w-full rounded-lg border px-3 py-2 text-sm"
@@ -165,7 +196,7 @@ interface SaveWorkflowState {
               </label>
 
               <label class="sm:col-span-2">
-                <span class="text-sm font-medium text-slate-700">{{ config.contentLabel }}</span>
+                <span class="text-sm font-medium text-slate-700">Post Content</span>
                 <textarea
                   [(ngModel)]="form.content"
                   rows="6"
@@ -329,7 +360,7 @@ interface SaveWorkflowState {
                 </div>
 
                 @if (submitted() && mediaMissing()) {
-                  <p class="mt-2 text-xs text-red-600">Media is required for {{ config.label }}.</p>
+                  <p class="mt-2 text-xs text-red-600">Media is required when any selected platform requires media.</p>
                 }
 
                 @if (mediaValidationError()) {
@@ -442,8 +473,20 @@ interface SaveWorkflowState {
           <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <h2 class="font-semibold text-slate-900">Bulk upload</h2>
             <p class="mt-1 text-sm text-slate-500">
-              Download the {{ config.label }} CSV or XLSX template. Valid rows import as drafts.
+              Download a platform-specific CSV or XLSX template. Valid rows import as drafts.
             </p>
+
+            <label class="mt-4 block">
+              <span class="text-xs font-medium text-slate-500">Template Platform</span>
+              <select
+                [(ngModel)]="bulkPlatform"
+                class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              >
+                @for (config of platformConfigs; track config.platform) {
+                  <option [ngValue]="config.platform">{{ config.label }}</option>
+                }
+              </select>
+            </label>
 
             <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button
@@ -510,11 +553,6 @@ interface SaveWorkflowState {
             }
           </section>
         </div>
-      } @else {
-        <section class="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">
-          Select a social media platform to start creating posts.
-        </section>
-      }
     </div>
   `,
 })
@@ -523,6 +561,7 @@ export class PostCreate implements OnInit, OnDestroy {
   private readonly mediaLibraryService = inject(LibraryMediaService);
   private readonly notify = inject(NotificationService);
   private readonly apiOrigin = environment.apiBaseUrl.replace(/\/api\/v1$/, '');
+  private targetSequence = 0;
 
   protected readonly platformConfigs: PlatformConfig[] = [
     {
@@ -561,7 +600,7 @@ export class PostCreate implements OnInit, OnDestroy {
 
   protected readonly accounts = signal<SocialIntegration[]>([]);
   protected readonly products = signal<Product[]>([]);
-  protected readonly selectedPlatform = signal<SocialPlatform | null>(null);
+  protected readonly targets = signal<PlatformTarget[]>([this.emptyTarget()]);
   protected readonly submitted = signal(false);
   protected readonly saving = signal(false);
   protected readonly selectedFile = signal<File | null>(null);
@@ -583,14 +622,15 @@ export class PostCreate implements OnInit, OnDestroy {
   protected form: PostForm = this.emptyForm();
   protected uploadFolderId: number | null = null;
   protected newFolderName = '';
-
-  protected readonly selectedConfig = computed(() =>
-    this.platformConfigs.find((config) => config.platform === this.selectedPlatform()),
-  );
-  protected readonly selectedAccounts = computed(() => this.platformAccounts(this.selectedPlatform()));
+  protected bulkPlatform: SocialPlatform = 'FACEBOOK';
 
   ngOnInit(): void {
-    this.publishing.listAccounts().subscribe({ next: (items) => this.accounts.set(items) });
+    this.publishing.listAccounts().subscribe({
+      next: (items) => {
+        this.accounts.set(items);
+        this.initializeDefaultTarget();
+      },
+    });
     this.publishing.listProducts().subscribe({ next: (items) => this.products.set(items) });
     this.loadMediaFolders();
   }
@@ -599,17 +639,9 @@ export class PostCreate implements OnInit, OnDestroy {
     this.revokePendingPreview();
   }
 
-  protected selectPlatform(platform: SocialPlatform): void {
-    this.selectedPlatform.set(platform);
-    this.resetForm();
-    this.uploadResult.set(null);
-    this.selectedFile.set(null);
-  }
-
   protected resetForm(): void {
-    const platform = this.selectedPlatform();
     this.form = this.emptyForm();
-    this.form.socialIntegrationId = platform ? this.platformAccounts(platform)[0]?.id ?? null : null;
+    this.targets.set([this.defaultTarget()]);
     this.submitted.set(false);
     this.mediaValidationError.set(null);
     this.clearMediaSelection();
@@ -619,8 +651,7 @@ export class PostCreate implements OnInit, OnDestroy {
     this.submitted.set(true);
     this.mediaValidationError.set(null);
     if (
-      !this.selectedPlatform() ||
-      !this.form.socialIntegrationId ||
+      !this.targetsValid() ||
       !this.form.content.trim() ||
       !this.form.title.trim() ||
       !this.form.productId ||
@@ -637,17 +668,17 @@ export class PostCreate implements OnInit, OnDestroy {
         await this.saveWithNewUpload();
       } else {
         const mediaAssetId = this.selectedLibraryMedia()?.mediaId ?? null;
-        const draft = await firstValueFrom(this.publishing.createPost(this.formBody(mediaAssetId)));
+        const drafts = await this.createDrafts(mediaAssetId);
         this.workflow.set({
           percentage: 100,
-          title: 'Draft saved',
+          title: drafts.length === 1 ? 'Draft saved' : 'Drafts saved',
           detail: mediaAssetId
-            ? 'The draft was created and linked to the selected media library item.'
-            : 'The draft was created without media.',
+            ? `${drafts.length} draft(s) were created and linked to the selected media library item.`
+            : `${drafts.length} draft(s) were created without media.`,
           tone: 'success',
-          postId: draft.id,
+          postId: drafts[0]?.id,
         });
-        this.notify.success(mediaAssetId ? 'Draft saved with selected media.' : 'Draft saved.');
+        this.notify.success(`${drafts.length} draft(s) saved.`);
         this.resetForm();
       }
     } catch (err) {
@@ -664,10 +695,7 @@ export class PostCreate implements OnInit, OnDestroy {
   }
 
   protected downloadTemplate(format: 'xlsx' | 'csv'): void {
-    const platform = this.selectedPlatform();
-    if (!platform) {
-      return;
-    }
+    const platform = this.bulkPlatform;
     this.downloading.set(true);
     this.publishing.downloadTemplate(platform, format).subscribe({
       next: (blob) => {
@@ -705,9 +733,9 @@ export class PostCreate implements OnInit, OnDestroy {
   }
 
   protected upload(): void {
-    const platform = this.selectedPlatform();
+    const platform = this.bulkPlatform;
     const file = this.selectedFile();
-    if (!platform || !file) {
+    if (!file) {
       return;
     }
     this.uploading.set(true);
@@ -723,6 +751,57 @@ export class PostCreate implements OnInit, OnDestroy {
         this.uploading.set(false);
       },
     });
+  }
+
+  protected addTarget(): void {
+    this.targets.update((items) => [...items, this.emptyTarget()]);
+  }
+
+  protected removeTarget(id: string): void {
+    this.targets.update((items) => {
+      const next = items.filter((target) => target.id !== id);
+      return next.length ? next : [this.emptyTarget()];
+    });
+  }
+
+  protected updateTargetPlatform(id: string, platform: SocialPlatform | null): void {
+    this.targets.update((items) =>
+      items.map((target) =>
+        target.id === id
+          ? {
+              ...target,
+              platform,
+              socialIntegrationId: platform ? this.platformAccounts(platform)[0]?.id ?? null : null,
+            }
+          : target,
+      ),
+    );
+  }
+
+  protected updateTargetAccount(id: string, socialIntegrationId: number | null): void {
+    this.targets.update((items) =>
+      items.map((target) => (target.id === id ? { ...target, socialIntegrationId } : target)),
+    );
+  }
+
+  protected duplicateTarget(target: PlatformTarget): boolean {
+    if (!target.platform || !target.socialIntegrationId) {
+      return false;
+    }
+    return this.targets().filter((item) => this.targetKey(item) === this.targetKey(target)).length > 1;
+  }
+
+  protected targetValidationError(): string | null {
+    if (this.targets().some((target) => !target.platform)) {
+      return 'Select a platform for every target.';
+    }
+    if (this.targets().some((target) => !target.socialIntegrationId)) {
+      return 'Select a connected account for every target.';
+    }
+    if (this.hasDuplicateTargets()) {
+      return 'Remove duplicate platform/account combinations before saving.';
+    }
+    return null;
   }
 
   protected onMediaFileSelected(event: Event): void {
@@ -841,7 +920,7 @@ export class PostCreate implements OnInit, OnDestroy {
 
   protected mediaMissing(): boolean {
     return Boolean(
-      this.selectedConfig()?.mediaRequired &&
+      this.selectedTargets().some((target) => this.platformConfig(target.platform)?.mediaRequired) &&
         !this.pendingUpload() &&
         !this.selectedLibraryMedia(),
     );
@@ -878,13 +957,11 @@ export class PostCreate implements OnInit, OnDestroy {
       return;
     }
 
-    const draft = await firstValueFrom(this.publishing.createPost(this.formBody(null)));
     this.workflow.set({
-      percentage: 45,
+      percentage: 35,
       title: 'Uploading media',
-      detail: 'The draft is saved. Uploading the selected file to Google Drive.',
+      detail: 'Uploading the selected file to Google Drive before creating account-specific drafts.',
       tone: 'info',
-      postId: draft.id,
     });
 
     if (!this.uploadFolderId) {
@@ -898,53 +975,57 @@ export class PostCreate implements OnInit, OnDestroy {
     if (!item.media) {
       this.workflow.set({
         percentage: 100,
-        title: 'Draft saved',
-        detail: `The draft was created, but the media upload failed: ${item.errorMessage ?? 'Unknown error.'}`,
+        title: 'Media upload failed',
+        detail: item.errorMessage ?? 'The selected file could not be uploaded.',
         tone: 'error',
-        postId: draft.id,
       });
       this.notify.error(item.errorMessage ?? 'Media upload failed.');
-      this.resetForm();
       return;
     }
 
     this.workflow.set({
-      percentage: 80,
-      title: 'Attaching media',
-      detail: 'Linking the uploaded media record to the saved draft.',
+      percentage: 70,
+      title: 'Creating drafts',
+      detail: 'Saving one draft for each selected platform/account combination.',
       tone: 'info',
-      postId: draft.id,
     });
-    const updated = await firstValueFrom(
-      this.publishing.updatePost(draft.id, this.updateBody(item.media.mediaId)),
-    );
+    const drafts = await this.createDrafts(item.media.mediaId);
 
     if (item.uploaded) {
       this.workflow.set({
         percentage: 100,
-        title: 'Draft saved',
-        detail: 'The draft was created and linked to the uploaded Google Drive media.',
+        title: drafts.length === 1 ? 'Draft saved' : 'Drafts saved',
+        detail: `${drafts.length} draft(s) were created and linked to the uploaded Google Drive media.`,
         tone: 'success',
-        postId: updated.id,
+        postId: drafts[0]?.id,
       });
-      this.notify.success('Draft saved with uploaded media.');
+      this.notify.success(`${drafts.length} draft(s) saved with uploaded media.`);
     } else {
       this.workflow.set({
         percentage: 100,
-        title: 'Draft saved with media error',
+        title: drafts.length === 1 ? 'Draft saved with media error' : 'Drafts saved with media error',
         detail:
           item.errorMessage ??
-          'The draft was created and linked to a failed media upload. Retry it from Media Library.',
+          'Drafts were created and linked to a failed media upload. Retry it from Media Library.',
         tone: 'error',
-        postId: updated.id,
+        postId: drafts[0]?.id,
       });
       this.notify.error(
         item.errorMessage ??
-          'Draft saved, but the media upload failed. Retry it from Media Library.',
+          'Drafts saved, but the media upload failed. Retry it from Media Library.',
       );
     }
 
     this.resetForm();
+  }
+
+  private async createDrafts(mediaAssetId: number | null): Promise<PostResponse[]> {
+    const drafts: PostResponse[] = [];
+    for (const target of this.selectedTargets()) {
+      const draft = await firstValueFrom(this.publishing.createPost(this.formBody(target, mediaAssetId)));
+      drafts.push(draft);
+    }
+    return drafts;
   }
 
   private applySelectedMediaFile(file: File | null): void {
@@ -1000,27 +1081,79 @@ export class PostCreate implements OnInit, OnDestroy {
     });
   }
 
-  private formBody(mediaAssetId: number | null): CreatePostRequest {
+  private initializeDefaultTarget(): void {
+    this.targets.update((items) => {
+      if (items.length !== 1 || items[0].platform || items[0].socialIntegrationId) {
+        return items;
+      }
+      return [this.defaultTarget()];
+    });
+  }
+
+  private defaultTarget(): PlatformTarget {
+    const firstAccount = this.accounts()[0];
     return {
-      platform: this.selectedPlatform()!,
-      socialIntegrationId: this.form.socialIntegrationId!,
+      id: this.nextTargetId(),
+      platform: firstAccount?.platform ?? 'FACEBOOK',
+      socialIntegrationId: firstAccount?.id ?? null,
+    };
+  }
+
+  private emptyTarget(): PlatformTarget {
+    return {
+      id: this.nextTargetId(),
+      platform: null,
+      socialIntegrationId: null,
+    };
+  }
+
+  private nextTargetId(): string {
+    this.targetSequence += 1;
+    return `target-${this.targetSequence}`;
+  }
+
+  private selectedTargets(): Array<{ platform: SocialPlatform; socialIntegrationId: number }> {
+    return this.targets().filter(
+      (target): target is PlatformTarget & { platform: SocialPlatform; socialIntegrationId: number } =>
+        Boolean(target.platform && target.socialIntegrationId),
+    );
+  }
+
+  private targetsValid(): boolean {
+    return (
+      this.targets().length > 0 &&
+      this.targets().every((target) => target.platform && target.socialIntegrationId) &&
+      !this.hasDuplicateTargets()
+    );
+  }
+
+  private hasDuplicateTargets(): boolean {
+    const keys = this.targets()
+      .filter((target) => target.platform && target.socialIntegrationId)
+      .map((target) => this.targetKey(target));
+    return new Set(keys).size !== keys.length;
+  }
+
+  private targetKey(target: PlatformTarget): string {
+    return `${target.platform ?? ''}:${target.socialIntegrationId ?? ''}`;
+  }
+
+  private platformConfig(platform: SocialPlatform | null): PlatformConfig | undefined {
+    return this.platformConfigs.find((config) => config.platform === platform);
+  }
+
+  private formBody(
+    target: { platform: SocialPlatform; socialIntegrationId: number },
+    mediaAssetId: number | null,
+  ): CreatePostRequest {
+    return {
+      platform: target.platform,
+      socialIntegrationId: target.socialIntegrationId,
       title: this.form.title.trim(),
       content: this.form.content.trim(),
       link: this.form.link.trim() || null,
       mediaAssetId,
       productId: this.form.productId!,
-    };
-  }
-
-  private updateBody(mediaAssetId: number): UpdatePostRequest {
-    return {
-      platform: this.selectedPlatform(),
-      socialIntegrationId: this.form.socialIntegrationId,
-      title: this.form.title.trim(),
-      content: this.form.content.trim(),
-      link: this.form.link.trim() || null,
-      mediaAssetId,
-      productId: this.form.productId,
     };
   }
 
@@ -1037,7 +1170,6 @@ export class PostCreate implements OnInit, OnDestroy {
     return {
       title: '',
       content: '',
-      socialIntegrationId: null,
       link: '',
       productId: null,
     };

@@ -68,6 +68,10 @@ export class PublishingService {
     return this.api.post<PostResponse>(ApiEndpoint.POST_RETRY, undefined, { pathParams: { id } });
   }
 
+  clonePost(id: number): Observable<PostResponse> {
+    return this.api.post<PostResponse>(ApiEndpoint.POST_CLONE, undefined, { pathParams: { id } });
+  }
+
   /** Downloads the bulk-upload template as XLSX or CSV. */
   downloadTemplate(platform: SocialPlatform, format: 'xlsx' | 'csv' = 'xlsx'): Observable<Blob> {
     return this.api.get<Blob>(ApiEndpoint.POSTS_TEMPLATE, {

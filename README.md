@@ -69,16 +69,20 @@ dashboard/accounts pages to load live data — they degrade gracefully otherwise
 
 ## Add Post Media Flow
 
-The Add Post page now supports draft-first media handling without changing the
-overall page structure:
+The Add Post page opens the form directly and lets users choose one or more
+platform/account targets inside the form:
 
+- Users can select the same platform multiple times when each row uses a
+  different connected account.
+- Duplicate platform/account combinations are blocked before saving.
+- Saving creates one draft per selected platform/account combination, so the
+  post list shows account-specific rows that can be scheduled independently.
 - Users can drag/drop an image or video, choose a file from their device, or
   attach an existing uploaded Media Library item.
-- New files follow a staged flow: create draft post first, upload media to
-  Google Drive through the Media Library API, then attach the resulting
-  `mediaAssetId` back to the draft.
-- Existing Media Library items are attached directly to the draft without a
-  duplicate upload.
+- New files upload once to Google Drive through the Media Library API, then the
+  resulting `mediaAssetId` is attached to every generated draft.
+- Existing Media Library items are attached directly to every generated draft
+  without a duplicate upload.
 - The page shows local preview, save/upload progress, and upload failure state
   while keeping `status` and `scheduledAt` out of the Add Post workflow.
 
@@ -98,10 +102,19 @@ Supported media columns in the template are `imageUrl`, `videoUrl`, and
 
 The post-management and schedules UI now reflect the safer publish lifecycle:
 
-- schedule create/edit selects one social media platform and one connected
-  posting account for the whole schedule
-- schedule create/edit uses a five-step drawer: basic info, posting time,
-  selected posts, publishing account, and review/save
+- schedule create/edit uses a three-step drawer: basic info, posting time, and
+  review/save; it no longer contains post selection
+- schedules no longer select one posting account for the whole schedule; each
+  selected post keeps the platform/account chosen in the Add Post flow
+- posts are added to schedules only from the Add Post list, where only
+  unscheduled Draft posts are selectable
+- Posted rows expose a Clone action in the Add Post list; cloning creates a new
+  Draft row and keeps the original posted history unchanged
+- Schedule View shows only waiting/not-yet-posted rows and provides actions to
+  remove a post from the schedule or set/clear a custom posting time for that
+  post only
+- posting time is loaded from the saved schedule and is not reinitialized while
+  the editor remains open
 - custom schedules expose an hourly interval so multiple linked posts publish
   sequentially across the day
 - all schedule types display linked posts in sequential publish order rather than

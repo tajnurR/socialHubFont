@@ -150,17 +150,17 @@ interface PostForm {
           <div>
             <p class="text-sm font-semibold text-slate-800">Add selected posts to a schedule</p>
             <p class="mt-1 text-xs text-slate-500">
-              {{ selectedCount() }} selected from {{ posts().length }} filtered post(s).
+              {{ selectedCount() }} draft post(s) selected. Only unscheduled Draft posts can be scheduled.
             </p>
           </div>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto_auto] xl:min-w-[720px]">
             <button
               type="button"
               class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
-              [disabled]="posts().length === 0 || selectedCount() === posts().length"
+              [disabled]="draftPosts().length === 0 || selectedCount() === draftPosts().length"
               (click)="selectAllFiltered()"
             >
-              Select All Filtered
+              Select All Drafts
             </button>
             <button
               type="button"
@@ -220,8 +220,9 @@ interface PostForm {
                       type="checkbox"
                       class="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600"
                       [checked]="isSelected(post.id)"
+                      [disabled]="!canSchedule(post)"
                       (change)="togglePostSelection(post.id, $event)"
-                      aria-label="Select post"
+                      [attr.aria-label]="canSchedule(post) ? 'Select draft post' : 'Only draft posts can be scheduled'"
                     />
                     <div class="min-w-0">
                     <p class="font-mono text-xs text-slate-400">#{{ post.id }}</p>
@@ -243,7 +244,12 @@ interface PostForm {
                 <dl class="grid grid-cols-1 gap-2 text-xs text-slate-500 sm:grid-cols-2">
                   <div class="rounded-lg bg-slate-50 p-2">
                     <dt class="font-medium text-slate-400">Platform</dt>
-                    <dd class="mt-0.5 text-slate-700">{{ platformLabel(post.platform) }}</dd>
+                    <dd class="mt-1 flex items-center gap-2 text-slate-700">
+                      <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-indigo-700">
+                        {{ platformIcon(post.platform) }}
+                      </span>
+                      <span>{{ platformLabel(post.platform) }}</span>
+                    </dd>
                   </div>
                   <div class="rounded-lg bg-slate-50 p-2">
                     <dt class="font-medium text-slate-400">Account</dt>
@@ -294,6 +300,15 @@ interface PostForm {
                     Delete
                   </button>
                 </div>
+                @if (post.status === 'POSTED') {
+                  <button
+                    type="button"
+                    class="w-full rounded-lg border border-emerald-200 px-3 py-2 text-xs font-medium text-emerald-700"
+                    (click)="clone(post)"
+                  >
+                    Clone as Draft
+                  </button>
+                }
                 @if (post.status === 'FAILED') {
                   <button
                     type="button"
@@ -343,8 +358,9 @@ interface PostForm {
                         type="checkbox"
                         class="h-4 w-4 rounded border-slate-300 text-indigo-600"
                         [checked]="isSelected(post.id)"
+                        [disabled]="!canSchedule(post)"
                         (change)="togglePostSelection(post.id, $event)"
-                        aria-label="Select post"
+                        [attr.aria-label]="canSchedule(post) ? 'Select draft post' : 'Only draft posts can be scheduled'"
                       />
                     </td>
                     <td class="px-4 py-3 font-mono text-xs text-slate-500">#{{ post.id }}</td>
@@ -354,7 +370,14 @@ interface PostForm {
                       </p>
                       <p class="mt-1 line-clamp-2 text-xs text-slate-500">{{ post.content }}</p>
                     </td>
-                    <td class="px-4 py-3">{{ platformLabel(post.platform) }}</td>
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-2">
+                        <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-semibold text-indigo-700">
+                          {{ platformIcon(post.platform) }}
+                        </span>
+                        <span>{{ platformLabel(post.platform) }}</span>
+                      </div>
+                    </td>
                     <td class="px-4 py-3 text-slate-600">
                       {{ post.targetAccountName || accountLabel(post.socialIntegrationId) }}
                     </td>
@@ -394,6 +417,15 @@ interface PostForm {
                       >
                         Delete
                       </button>
+                      @if (post.status === 'POSTED') {
+                        <button
+                          type="button"
+                          class="ml-3 text-xs font-medium text-emerald-700 hover:underline"
+                          (click)="clone(post)"
+                        >
+                          Clone
+                        </button>
+                      }
                       @if (post.status === 'FAILED') {
                         <button
                           type="button"
@@ -822,16 +854,17 @@ export class PostManagement implements OnInit {
     Math.max(1, Math.ceil(this.posts().length / this.pageSize)),
   );
   protected readonly selectedCount = computed(() => this.selectedPostIds().size);
+  protected readonly draftPosts = computed(() => this.posts().filter((post) => this.canSchedule(post)));
   protected readonly pagedPosts = computed(() => {
     const start = (this.page() - 1) * this.pageSize;
     return this.posts().slice(start, start + this.pageSize);
   });
   protected readonly allVisibleSelected = computed(() => {
-    const visible = this.pagedPosts();
+    const visible = this.pagedPosts().filter((post) => this.canSchedule(post));
     return visible.length > 0 && visible.every((post) => this.selectedPostIds().has(post.id));
   });
   protected readonly someVisibleSelected = computed(() => {
-    const visible = this.pagedPosts();
+    const visible = this.pagedPosts().filter((post) => this.canSchedule(post));
     return !this.allVisibleSelected() && visible.some((post) => this.selectedPostIds().has(post.id));
   });
   protected readonly selectedConfig = computed(() =>
@@ -988,12 +1021,35 @@ export class PostManagement implements OnInit {
     });
   }
 
+  protected clone(post: PostResponse): void {
+    this.publishing.clonePost(post.id).subscribe({
+      next: (cloned) => {
+        this.notify.success(`Post #${post.id} cloned as draft #${cloned.id}.`);
+        this.loadPosts();
+      },
+      error: (err) => this.notify.error(err?.error?.message ?? 'Could not clone the post.'),
+    });
+  }
+
+  protected canSchedule(post: PostResponse): boolean {
+    return post.status === 'DRAFT' && !post.scheduleEventId;
+  }
+
   protected isSelected(postId: number): boolean {
     return this.selectedPostIds().has(postId);
   }
 
   protected togglePostSelection(postId: number, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
+    const post = this.posts().find((item) => item.id === postId);
+    if (!post || !this.canSchedule(post)) {
+      this.selectedPostIds.update((current) => {
+        const next = new Set(current);
+        next.delete(postId);
+        return next;
+      });
+      return;
+    }
     this.selectedPostIds.update((current) => {
       const next = new Set(current);
       if (checked) {
@@ -1007,7 +1063,7 @@ export class PostManagement implements OnInit {
 
   protected toggleVisibleSelection(event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
-    const visibleIds = this.pagedPosts().map((post) => post.id);
+    const visibleIds = this.pagedPosts().filter((post) => this.canSchedule(post)).map((post) => post.id);
     this.selectedPostIds.update((current) => {
       const next = new Set(current);
       for (const id of visibleIds) {
@@ -1022,7 +1078,7 @@ export class PostManagement implements OnInit {
   }
 
   protected selectAllFiltered(): void {
-    this.selectedPostIds.set(new Set(this.posts().map((post) => post.id)));
+    this.selectedPostIds.set(new Set(this.draftPosts().map((post) => post.id)));
   }
 
   protected clearSelection(): void {
@@ -1034,6 +1090,14 @@ export class PostManagement implements OnInit {
       return;
     }
     const postIds = [...this.selectedPostIds()];
+    const invalid = postIds.some((id) => {
+      const post = this.posts().find((item) => item.id === id);
+      return !post || !this.canSchedule(post);
+    });
+    if (invalid) {
+      this.notify.error('Only draft posts can be added to a schedule.');
+      return;
+    }
     this.assigningToSchedule.set(true);
     this.publishing.attachPostsToSchedule(this.selectedScheduleId, postIds).subscribe({
       next: () => {
@@ -1118,6 +1182,21 @@ export class PostManagement implements OnInit {
 
   protected platformLabel(platform: SocialPlatform): string {
     return this.platformConfigs.find((config) => config.platform === platform)?.label ?? platform;
+  }
+
+  protected platformIcon(platform: SocialPlatform): string {
+    switch (platform) {
+      case 'FACEBOOK':
+        return 'f';
+      case 'INSTAGRAM':
+        return 'IG';
+      case 'LINKEDIN':
+        return 'in';
+      case 'X':
+        return 'X';
+      default:
+        return platform.slice(0, 2).toUpperCase();
+    }
   }
 
   protected statusLabel(status: PostStatus): string {
