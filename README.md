@@ -77,14 +77,16 @@ platform/account targets inside the form:
 - Duplicate platform/account combinations are blocked before saving.
 - Saving creates one draft per selected platform/account combination, so the
   post list shows account-specific rows that can be scheduled independently.
-- Users can drag/drop an image or video, choose a file from their device, or
-  attach an existing uploaded Media Library item.
+- Users can drag/drop multiple images/videos, choose multiple files from their
+  device, or attach multiple existing uploaded Media Library items.
 - New files upload once to Google Drive through the Media Library API, then the
-  resulting `mediaAssetId` is attached to every generated draft.
+  resulting `mediaAssetIds` are attached to every generated draft in selection
+  order.
 - Existing Media Library items are attached directly to every generated draft
   without a duplicate upload.
-- The page shows local preview, save/upload progress, and upload failure state
-  while keeping `status` and `scheduledAt` out of the Add Post workflow.
+- The page shows compact local previews, authenticated blob previews for library
+  thumbnails, save/upload progress, and upload failure state while keeping
+  `status` and `scheduledAt` out of the Add Post workflow.
 
 ## Bulk Upload Templates
 
@@ -96,7 +98,9 @@ The bulk-upload area on Add Post now supports:
 - downloading a generated CSV error report when some rows fail
 
 Supported media columns in the template are `imageUrl`, `videoUrl`, and
-`googleDriveUrl`, with exactly one media reference allowed per row.
+`googleDriveUrl`. A row can include multiple media URLs by separating values with
+semicolons, commas, or new lines. Public URLs are imported into the Media Library;
+Google Drive URLs must be accessible through the connected Drive account.
 
 ## Scheduled Publishing Status Flow
 

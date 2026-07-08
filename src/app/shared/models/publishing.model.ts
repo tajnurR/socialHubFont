@@ -29,6 +29,7 @@ export interface PostResponse {
   directDownloadUrl?: string | null;
   thumbnailUrl?: string | null;
   mediaUploadStatus?: 'UPLOADING' | 'UPLOADED' | 'FAILED' | null;
+  mediaItems?: PostMediaItem[];
   productId?: number | null;
   status: PostStatus;
   scheduledAt?: string | null;
@@ -44,6 +45,18 @@ export interface PostResponse {
   updatedAt: string;
 }
 
+export interface PostMediaItem {
+  mediaAssetId: number;
+  mediaType?: 'IMAGE' | 'VIDEO' | null;
+  mediaUrl?: string | null;
+  googleDriveFileId?: string | null;
+  googleDriveUrl?: string | null;
+  directDownloadUrl?: string | null;
+  thumbnailUrl?: string | null;
+  mediaUploadStatus?: 'UPLOADING' | 'UPLOADED' | 'FAILED' | null;
+  displayOrder: number;
+}
+
 /** Create a single post from Post Management. */
 export interface CreatePostRequest {
   platform: SocialPlatform;
@@ -53,6 +66,7 @@ export interface CreatePostRequest {
   link?: string | null;
   mediaUrl?: string | null;
   mediaAssetId?: number | null;
+  mediaAssetIds?: number[];
   productId: number;
 }
 
@@ -65,6 +79,7 @@ export interface UpdatePostRequest {
   link?: string | null;
   mediaUrl?: string | null;
   mediaAssetId?: number | null;
+  mediaAssetIds?: number[];
   productId?: number | null;
 }
 

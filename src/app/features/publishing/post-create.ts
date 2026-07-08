@@ -3,7 +3,6 @@ import { Component, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { environment } from '../../../environments/environment';
 import { NotificationService } from '../../core/services/notification.service';
 import { PageHeader } from '../../shared/components/page-header/page-header';
 import { MediaFolder, MediaItem, MediaType } from '../../shared/models/media.model';
@@ -41,6 +40,7 @@ interface PlatformTarget {
 }
 
 interface PendingUploadMedia {
+  id: string;
   file: File;
   mediaType: MediaType;
   previewUrl: string;
@@ -222,7 +222,7 @@ interface SaveWorkflowState {
                   <div>
                     <span class="text-sm font-medium text-slate-700">Media</span>
                     <p class="mt-1 text-xs text-slate-500">
-                      Drag a file here, choose one from your device, or attach an uploaded library item.
+                      Add one or more images/videos. They will be saved in order and attached to each generated draft.
                     </p>
                   </div>
                   <div class="flex flex-wrap gap-2">
@@ -232,7 +232,7 @@ interface SaveWorkflowState {
                       [disabled]="!uploadFolderId"
                       (click)="mediaInput.click()"
                     >
-                      Choose file
+                      Choose files
                     </button>
                     <button
                       type="button"
@@ -291,6 +291,7 @@ interface SaveWorkflowState {
                 <input
                   #mediaInput
                   type="file"
+                  multiple
                   class="hidden"
                   accept=".jpg,.jpeg,.png,.webp,.gif,.mp4,.mov,.avi,.webm,image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/x-msvideo,video/webm"
                   (change)="onMediaFileSelected($event)"
@@ -307,52 +308,52 @@ interface SaveWorkflowState {
                   (dragleave)="onMediaDragLeave($event)"
                   (drop)="onMediaDrop($event)"
                 >
-                  @if (pendingUpload(); as pending) {
-                    <div class="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
-                      <div class="overflow-hidden rounded-lg bg-slate-100">
-                        @if (pending.mediaType === 'IMAGE') {
-                          <img [src]="pending.previewUrl" alt="Selected upload preview" class="aspect-video h-full w-full object-cover" />
-                        } @else {
-                          <video [src]="pending.previewUrl" class="aspect-video h-full w-full bg-black object-contain" controls preload="metadata"></video>
+                  @if (hasSelectedMedia()) {
+                    <div class="space-y-3">
+                      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                        @for (pending of pendingUploads(); track pending.id) {
+                          <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
+                            <div class="aspect-square bg-slate-100">
+                              @if (pending.mediaType === 'IMAGE') {
+                                <img [src]="pending.previewUrl" alt="Selected upload preview" class="h-full w-full object-cover" />
+                              } @else {
+                                <video [src]="pending.previewUrl" class="h-full w-full bg-black object-cover" muted preload="metadata"></video>
+                              }
+                            </div>
+                            <div class="space-y-1 p-2">
+                              <p class="truncate text-xs font-medium text-slate-900">{{ pending.file.name }}</p>
+                              <p class="text-[11px] text-slate-500">{{ pending.mediaType }} · {{ formatBytes(pending.file.size) }}</p>
+                              <button type="button" class="text-[11px] font-medium text-red-600" (click)="removePendingUpload(pending.id)">Remove</button>
+                            </div>
+                          </div>
                         }
-                      </div>
-                      <div class="space-y-2">
-                        <p class="text-sm font-medium text-slate-900">{{ pending.file.name }}</p>
-                        <p class="text-xs text-slate-500">
-                          {{ pending.mediaType }} · {{ formatBytes(pending.file.size) }}
-                        </p>
-                        <p class="text-sm text-slate-600">
-                          This file will upload to Google Drive after the draft is created.
-                        </p>
-                      </div>
-                    </div>
-                  } @else if (selectedLibraryMedia(); as media) {
-                    <div class="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
-                      <div class="overflow-hidden rounded-lg bg-slate-100">
-                        @if (media.mediaType === 'IMAGE' && previewUrlForMedia(media)) {
-                          <img [src]="previewUrlForMedia(media) || ''" alt="Selected library media" class="aspect-video h-full w-full object-cover" />
-                        } @else if (media.mediaType === 'VIDEO' && previewUrlForMedia(media)) {
-                          <video [src]="previewUrlForMedia(media) || ''" class="aspect-video h-full w-full bg-black object-contain" controls preload="metadata"></video>
-                        } @else {
-                          <div class="flex aspect-video items-center justify-center text-sm font-medium text-slate-400">
-                            {{ media.mediaType }}
+                        @for (media of selectedLibraryMedia(); track media.mediaId) {
+                          <div class="overflow-hidden rounded-md border border-indigo-200 bg-white">
+                            <div class="aspect-square bg-slate-100">
+                              @if (media.mediaType === 'IMAGE' && previewUrlForMedia(media)) {
+                                <img [src]="previewUrlForMedia(media) || ''" [alt]="media.fileName" class="h-full w-full object-cover" />
+                              } @else if (media.mediaType === 'VIDEO' && previewUrlForMedia(media)) {
+                                <video [src]="previewUrlForMedia(media) || ''" class="h-full w-full bg-black object-cover" muted preload="metadata"></video>
+                              } @else {
+                                <div class="flex h-full items-center justify-center text-xs font-medium text-slate-400">{{ media.mediaType }}</div>
+                              }
+                            </div>
+                            <div class="space-y-1 p-2">
+                              <p class="truncate text-xs font-medium text-slate-900">{{ media.fileName }}</p>
+                              <p class="text-[11px] text-slate-500">Library · {{ media.mediaType }}</p>
+                              <button type="button" class="text-[11px] font-medium text-red-600" (click)="removeLibraryMedia(media.mediaId)">Remove</button>
+                            </div>
                           </div>
                         }
                       </div>
-                      <div class="space-y-2">
-                        <p class="text-sm font-medium text-slate-900">{{ media.fileName }}</p>
-                        <p class="text-xs text-slate-500">
-                          Library item · {{ media.mediaType }} · {{ formatBytes(media.fileSize) }}
-                        </p>
-                        <p class="text-sm text-slate-600">
-                          Existing media will attach to the draft without uploading a duplicate file.
-                        </p>
-                      </div>
+                      <p class="text-xs text-slate-500">
+                        {{ selectedMediaCount() }} media item(s) selected. New files will upload to Google Drive before drafts are created.
+                      </p>
                     </div>
                   } @else {
                     <div class="space-y-2 text-center text-sm text-slate-500">
                       <p class="font-medium text-slate-700">
-                        {{ uploadFolderId ? 'Drop an image or video here' : 'Select an upload folder first' }}
+                        {{ uploadFolderId ? 'Drop images or videos here' : 'Select an upload folder first' }}
                       </p>
                       <p>Supported images: jpg, jpeg, png, webp, gif. Supported videos: mp4, mov, avi, webm.</p>
                     </div>
@@ -413,19 +414,19 @@ interface SaveWorkflowState {
                         No uploaded media is available yet. Upload a file or add one from the Media page first.
                       </p>
                     } @else {
-                      <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
                         @for (item of libraryMedia(); track item.mediaId) {
                           <button
                             type="button"
-                            class="overflow-hidden rounded-lg border bg-white text-left transition"
+                            class="overflow-hidden rounded-md border bg-white text-left transition"
                             [ngClass]="
-                              selectedLibraryMedia()?.mediaId === item.mediaId
+                              isLibraryMediaSelected(item.mediaId)
                                 ? 'border-indigo-300 ring-2 ring-indigo-100'
                                 : 'border-slate-200 hover:border-indigo-200'
                             "
                             (click)="selectLibraryMedia(item)"
                           >
-                            <div class="aspect-video bg-slate-100">
+                            <div class="aspect-square bg-slate-100">
                               @if (item.mediaType === 'IMAGE' && previewUrlForMedia(item)) {
                                 <img [src]="previewUrlForMedia(item) || ''" [alt]="item.fileName" class="h-full w-full object-cover" />
                               } @else if (item.mediaType === 'VIDEO' && previewUrlForMedia(item)) {
@@ -436,9 +437,9 @@ interface SaveWorkflowState {
                                 </div>
                               }
                             </div>
-                            <div class="space-y-1 p-3">
-                              <p class="truncate text-sm font-medium text-slate-900">{{ item.fileName }}</p>
-                              <p class="text-xs text-slate-500">
+                            <div class="space-y-1 p-2">
+                              <p class="truncate text-xs font-medium text-slate-900">{{ item.fileName }}</p>
+                              <p class="text-[11px] text-slate-500">
                                 {{ item.mediaType }} · {{ formatBytes(item.fileSize) }}
                               </p>
                             </div>
@@ -475,6 +476,17 @@ interface SaveWorkflowState {
             <p class="mt-1 text-sm text-slate-500">
               Download a platform-specific CSV or XLSX template. Valid rows import as drafts.
             </p>
+
+            <div class="mt-4 rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-xs text-indigo-900">
+              <p class="font-semibold">How to format the file</p>
+              <ul class="mt-2 space-y-1">
+                <li>Use one row per draft post and keep the template headers unchanged.</li>
+                <li>Required columns: postContent, product, postTitle, and pageId.</li>
+                <li>For multiple media files, put URLs in imageUrl, videoUrl, or googleDriveUrl separated by semicolons, commas, or new lines.</li>
+                <li>Example: <span class="font-mono">https://site.com/a.jpg; https://site.com/b.jpg</span></li>
+                <li>Public image/video URLs are imported into your Media Library; Google Drive URLs must be accessible from your connected Drive account.</li>
+              </ul>
+            </div>
 
             <label class="mt-4 block">
               <span class="text-xs font-medium text-slate-500">Template Platform</span>
@@ -560,7 +572,6 @@ export class PostCreate implements OnInit, OnDestroy {
   private readonly publishing = inject(PublishingService);
   private readonly mediaLibraryService = inject(LibraryMediaService);
   private readonly notify = inject(NotificationService);
-  private readonly apiOrigin = environment.apiBaseUrl.replace(/\/api\/v1$/, '');
   private targetSequence = 0;
 
   protected readonly platformConfigs: PlatformConfig[] = [
@@ -607,9 +618,10 @@ export class PostCreate implements OnInit, OnDestroy {
   protected readonly downloading = signal(false);
   protected readonly uploading = signal(false);
   protected readonly uploadResult = signal<BulkUploadResult | null>(null);
-  protected readonly pendingUpload = signal<PendingUploadMedia | null>(null);
-  protected readonly selectedLibraryMedia = signal<MediaItem | null>(null);
+  protected readonly pendingUploads = signal<PendingUploadMedia[]>([]);
+  protected readonly selectedLibraryMedia = signal<MediaItem[]>([]);
   protected readonly libraryMedia = signal<MediaItem[]>([]);
+  protected readonly previewUrls = signal<Map<number, string>>(new Map());
   protected readonly mediaFolders = signal<MediaFolder[]>([]);
   protected readonly libraryLoading = signal(false);
   protected readonly showLibrary = signal(false);
@@ -618,6 +630,8 @@ export class PostCreate implements OnInit, OnDestroy {
   protected readonly dragging = signal(false);
   protected readonly mediaValidationError = signal<string | null>(null);
   protected readonly workflow = signal<SaveWorkflowState | null>(null);
+  private readonly objectUrls = new Map<number, string>();
+  private mediaSequence = 0;
 
   protected form: PostForm = this.emptyForm();
   protected uploadFolderId: number | null = null;
@@ -636,7 +650,8 @@ export class PostCreate implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.revokePendingPreview();
+    this.revokePendingPreviews();
+    this.revokePreviewUrls();
   }
 
   protected resetForm(): void {
@@ -664,15 +679,15 @@ export class PostCreate implements OnInit, OnDestroy {
     this.workflow.set({ percentage: 10, title: 'Saving draft', detail: 'Creating the draft post.', tone: 'info' });
 
     try {
-      if (this.pendingUpload()) {
+      if (this.pendingUploads().length) {
         await this.saveWithNewUpload();
       } else {
-        const mediaAssetId = this.selectedLibraryMedia()?.mediaId ?? null;
-        const drafts = await this.createDrafts(mediaAssetId);
+        const mediaAssetIds = this.selectedLibraryMedia().map((media) => media.mediaId);
+        const drafts = await this.createDrafts(mediaAssetIds);
         this.workflow.set({
           percentage: 100,
           title: drafts.length === 1 ? 'Draft saved' : 'Drafts saved',
-          detail: mediaAssetId
+          detail: mediaAssetIds.length
             ? `${drafts.length} draft(s) were created and linked to the selected media library item.`
             : `${drafts.length} draft(s) were created without media.`,
           tone: 'success',
@@ -811,8 +826,7 @@ export class PostCreate implements OnInit, OnDestroy {
       input.value = '';
       return;
     }
-    const file = input.files?.[0] ?? null;
-    this.applySelectedMediaFile(file);
+    this.applySelectedMediaFiles(Array.from(input.files ?? []));
     input.value = '';
   }
 
@@ -836,8 +850,7 @@ export class PostCreate implements OnInit, OnDestroy {
       this.mediaValidationError.set('Select or create a media folder before dropping a file.');
       return;
     }
-    const file = event.dataTransfer?.files?.[0] ?? null;
-    this.applySelectedMediaFile(file);
+    this.applySelectedMediaFiles(Array.from(event.dataTransfer?.files ?? []));
   }
 
   protected createMediaFolder(): void {
@@ -875,6 +888,7 @@ export class PostCreate implements OnInit, OnDestroy {
     this.mediaLibraryService.list('UPLOADED').subscribe({
       next: (items) => {
         this.libraryMedia.set(items);
+        this.syncPreviewUrls(items);
         this.libraryLoading.set(false);
       },
       error: () => {
@@ -885,26 +899,51 @@ export class PostCreate implements OnInit, OnDestroy {
   }
 
   protected selectLibraryMedia(item: MediaItem): void {
-    this.revokePendingPreview();
-    this.pendingUpload.set(null);
-    this.selectedLibraryMedia.set(item);
+    this.selectedLibraryMedia.update((items) =>
+      items.some((media) => media.mediaId === item.mediaId)
+        ? items.filter((media) => media.mediaId !== item.mediaId)
+        : [...items, item],
+    );
+    this.loadPreview(item, item.mediaType === 'VIDEO');
     this.mediaValidationError.set(null);
     this.workflow.set(null);
   }
 
   protected clearMediaSelection(): void {
-    this.revokePendingPreview();
-    this.pendingUpload.set(null);
-    this.selectedLibraryMedia.set(null);
+    this.revokePendingPreviews();
+    this.pendingUploads.set([]);
+    this.selectedLibraryMedia.set([]);
     this.mediaValidationError.set(null);
   }
 
   protected hasSelectedMedia(): boolean {
-    return this.pendingUpload() !== null || this.selectedLibraryMedia() !== null;
+    return this.selectedMediaCount() > 0;
+  }
+
+  protected selectedMediaCount(): number {
+    return this.pendingUploads().length + this.selectedLibraryMedia().length;
   }
 
   protected previewUrlForMedia(item: MediaItem): string | null {
-    return item.mediaId ? `${this.apiOrigin}/api/v1/media/${item.mediaId}/download` : null;
+    return item.thumbnailUrl || this.previewUrls().get(item.mediaId) || null;
+  }
+
+  protected isLibraryMediaSelected(mediaId: number): boolean {
+    return this.selectedLibraryMedia().some((item) => item.mediaId === mediaId);
+  }
+
+  protected removePendingUpload(id: string): void {
+    this.pendingUploads.update((items) => {
+      const removed = items.find((item) => item.id === id);
+      if (removed) {
+        URL.revokeObjectURL(removed.previewUrl);
+      }
+      return items.filter((item) => item.id !== id);
+    });
+  }
+
+  protected removeLibraryMedia(mediaId: number): void {
+    this.selectedLibraryMedia.update((items) => items.filter((item) => item.mediaId !== mediaId));
   }
 
   protected platformAccounts(platform: SocialPlatform | null): SocialIntegration[] {
@@ -921,8 +960,8 @@ export class PostCreate implements OnInit, OnDestroy {
   protected mediaMissing(): boolean {
     return Boolean(
       this.selectedTargets().some((target) => this.platformConfig(target.platform)?.mediaRequired) &&
-        !this.pendingUpload() &&
-        !this.selectedLibraryMedia(),
+        !this.pendingUploads().length &&
+        !this.selectedLibraryMedia().length,
     );
   }
 
@@ -952,34 +991,37 @@ export class PostCreate implements OnInit, OnDestroy {
   }
 
   private async saveWithNewUpload(): Promise<void> {
-    const pending = this.pendingUpload();
-    if (!pending) {
+    const pending = this.pendingUploads();
+    if (!pending.length) {
       return;
     }
 
     this.workflow.set({
       percentage: 35,
       title: 'Uploading media',
-      detail: 'Uploading the selected file to Google Drive before creating account-specific drafts.',
+      detail: 'Uploading the selected files to Google Drive before creating account-specific drafts.',
       tone: 'info',
     });
 
     if (!this.uploadFolderId) {
       throw new Error('Select or create a media folder before uploading.');
     }
-    const result = await firstValueFrom(this.mediaLibraryService.upload([pending.file], this.uploadFolderId));
-    const item = result.items[0];
-    if (!item) {
+    const result = await firstValueFrom(
+      this.mediaLibraryService.upload(pending.map((item) => item.file), this.uploadFolderId),
+    );
+    const uploadedMedia = result.items.filter((item) => item.media).map((item) => item.media!);
+    if (!result.items.length) {
       throw new Error('Media upload did not return a result.');
     }
-    if (!item.media) {
+    if (!uploadedMedia.length) {
+      const firstError = result.items.find((item) => item.errorMessage)?.errorMessage;
       this.workflow.set({
         percentage: 100,
         title: 'Media upload failed',
-        detail: item.errorMessage ?? 'The selected file could not be uploaded.',
+        detail: firstError ?? 'The selected files could not be uploaded.',
         tone: 'error',
       });
-      this.notify.error(item.errorMessage ?? 'Media upload failed.');
+      this.notify.error(firstError ?? 'Media upload failed.');
       return;
     }
 
@@ -989,13 +1031,14 @@ export class PostCreate implements OnInit, OnDestroy {
       detail: 'Saving one draft for each selected platform/account combination.',
       tone: 'info',
     });
-    const drafts = await this.createDrafts(item.media.mediaId);
+    const libraryMediaIds = this.selectedLibraryMedia().map((media) => media.mediaId);
+    const drafts = await this.createDrafts([...libraryMediaIds, ...uploadedMedia.map((media) => media.mediaId)]);
 
-    if (item.uploaded) {
+    if (result.failedCount === 0) {
       this.workflow.set({
         percentage: 100,
         title: drafts.length === 1 ? 'Draft saved' : 'Drafts saved',
-        detail: `${drafts.length} draft(s) were created and linked to the uploaded Google Drive media.`,
+        detail: `${drafts.length} draft(s) were created and linked to ${uploadedMedia.length + libraryMediaIds.length} media item(s).`,
         tone: 'success',
         postId: drafts[0]?.id,
       });
@@ -1005,44 +1048,51 @@ export class PostCreate implements OnInit, OnDestroy {
         percentage: 100,
         title: drafts.length === 1 ? 'Draft saved with media error' : 'Drafts saved with media error',
         detail:
-          item.errorMessage ??
-          'Drafts were created and linked to a failed media upload. Retry it from Media Library.',
+          result.items.find((item) => item.errorMessage)?.errorMessage ??
+          'Drafts were created with the media that uploaded successfully. Retry failed files from Media Library.',
         tone: 'error',
         postId: drafts[0]?.id,
       });
       this.notify.error(
-        item.errorMessage ??
-          'Drafts saved, but the media upload failed. Retry it from Media Library.',
+        result.items.find((item) => item.errorMessage)?.errorMessage ??
+          'Drafts saved, but one or more media uploads failed. Retry them from Media Library.',
       );
     }
 
     this.resetForm();
   }
 
-  private async createDrafts(mediaAssetId: number | null): Promise<PostResponse[]> {
+  private async createDrafts(mediaAssetIds: number[]): Promise<PostResponse[]> {
     const drafts: PostResponse[] = [];
     for (const target of this.selectedTargets()) {
-      const draft = await firstValueFrom(this.publishing.createPost(this.formBody(target, mediaAssetId)));
+      const draft = await firstValueFrom(this.publishing.createPost(this.formBody(target, mediaAssetIds)));
       drafts.push(draft);
     }
     return drafts;
   }
 
-  private applySelectedMediaFile(file: File | null): void {
-    if (!file) {
+  private applySelectedMediaFiles(files: File[]): void {
+    if (!files.length) {
       return;
     }
-    const classified = this.classifyFile(file);
-    if (!classified) {
+    const pending: PendingUploadMedia[] = [];
+    for (const file of files) {
+      const classified = this.classifyFile(file);
+      if (!classified) {
+        continue;
+      }
+      this.mediaSequence += 1;
+      pending.push({
+        id: `media-${this.mediaSequence}`,
+        file,
+        mediaType: classified,
+        previewUrl: URL.createObjectURL(file),
+      });
+    }
+    if (!pending.length) {
       return;
     }
-    this.revokePendingPreview();
-    this.selectedLibraryMedia.set(null);
-    this.pendingUpload.set({
-      file,
-      mediaType: classified,
-      previewUrl: URL.createObjectURL(file),
-    });
+    this.pendingUploads.update((items) => [...items, ...pending]);
     this.mediaValidationError.set(null);
     this.workflow.set(null);
   }
@@ -1067,11 +1117,54 @@ export class PostCreate implements OnInit, OnDestroy {
     return null;
   }
 
-  private revokePendingPreview(): void {
-    const pending = this.pendingUpload();
-    if (pending?.previewUrl) {
+  private revokePendingPreviews(): void {
+    for (const pending of this.pendingUploads()) {
       URL.revokeObjectURL(pending.previewUrl);
     }
+  }
+
+  private loadPreview(item: MediaItem, includeVideo: boolean): void {
+    if (item.thumbnailUrl || this.objectUrls.has(item.mediaId)) {
+      return;
+    }
+    if (item.mediaType !== 'IMAGE' && !(includeVideo && item.mediaType === 'VIDEO')) {
+      return;
+    }
+    this.mediaLibraryService.download(item.mediaId).subscribe({
+      next: (blob) => {
+        const existing = this.objectUrls.get(item.mediaId);
+        if (existing) {
+          URL.revokeObjectURL(existing);
+        }
+        this.objectUrls.set(item.mediaId, URL.createObjectURL(blob));
+        this.previewUrls.set(new Map(this.objectUrls));
+      },
+      error: () => this.notify.error('Could not load media preview.'),
+    });
+  }
+
+  private syncPreviewUrls(items: MediaItem[]): void {
+    const ids = new Set(items.map((item) => item.mediaId));
+    for (const [mediaId, url] of this.objectUrls) {
+      if (!ids.has(mediaId)) {
+        URL.revokeObjectURL(url);
+        this.objectUrls.delete(mediaId);
+      }
+    }
+    this.previewUrls.set(new Map(this.objectUrls));
+    for (const item of items) {
+      if (item.mediaType === 'IMAGE') {
+        this.loadPreview(item, false);
+      }
+    }
+  }
+
+  private revokePreviewUrls(): void {
+    for (const url of this.objectUrls.values()) {
+      URL.revokeObjectURL(url);
+    }
+    this.objectUrls.clear();
+    this.previewUrls.set(new Map());
   }
 
   private loadMediaFolders(): void {
@@ -1144,7 +1237,7 @@ export class PostCreate implements OnInit, OnDestroy {
 
   private formBody(
     target: { platform: SocialPlatform; socialIntegrationId: number },
-    mediaAssetId: number | null,
+    mediaAssetIds: number[],
   ): CreatePostRequest {
     return {
       platform: target.platform,
@@ -1152,7 +1245,8 @@ export class PostCreate implements OnInit, OnDestroy {
       title: this.form.title.trim(),
       content: this.form.content.trim(),
       link: this.form.link.trim() || null,
-      mediaAssetId,
+      mediaAssetId: mediaAssetIds[0] ?? null,
+      mediaAssetIds,
       productId: this.form.productId!,
     };
   }
