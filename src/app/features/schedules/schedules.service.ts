@@ -347,8 +347,8 @@ export class SchedulesService {
   reschedulePostToDate(scheduleId: string, postId: string, date: string): void {
     const schedule = this.schedule(scheduleId);
     const scheduledAt = schedule
-      ? new Date(`${date}T${schedule.postingTime}:00`).toISOString()
-      : new Date(`${date}T20:00:00`).toISOString();
+      ? localDateTimeToIso(date, schedule.postingTime)
+      : localDateTimeToIso(date, '20:00');
     this._schedules.update((items) =>
       items.map((schedule) => {
         if (schedule.id !== scheduleId) {
@@ -975,7 +975,7 @@ function recomputeSchedulePostTimes(schedule: Schedule): SchedulePost[] {
 }
 
 function scheduleSlot(schedule: Schedule, index: number, time: string): string {
-  const base = new Date(`${schedule.startDate}T${time}:00`);
+  const base = localDateTime(schedule.startDate, time);
   switch (schedule.scheduleType) {
     case 'daily':
       base.setDate(base.getDate() + index);
@@ -995,6 +995,16 @@ function scheduleSlot(schedule: Schedule, index: number, time: string): string {
       break;
   }
   return base.toISOString();
+}
+
+function localDateTimeToIso(date: string, time: string): string {
+  return localDateTime(date, time).toISOString();
+}
+
+function localDateTime(date: string, time: string): Date {
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute = 0] = time.split(':').map(Number);
+  return new Date(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, 0, 0);
 }
 
 function queueIndex(schedule: Schedule, target: SchedulePost): number {

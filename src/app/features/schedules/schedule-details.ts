@@ -272,7 +272,7 @@ import { MediaService } from '../media/media.service';
                     <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_150px_auto] sm:items-end">
                       <div>
                         <p class="text-xs text-slate-500">Scheduled</p>
-                        <p class="text-sm font-medium text-slate-700">{{ post.scheduledAt | date: 'MMM d, h:mm a' }}</p>
+                        <p class="text-sm font-medium text-slate-700">{{ scheduledDisplay(post) }}</p>
                       </div>
                       <label>
                         <span class="text-xs text-slate-500">Custom date/time</span>
@@ -348,7 +348,7 @@ import { MediaService } from '../media/media.service';
                           <p class="mt-1 text-xs text-slate-500">{{ accountLabel(post) }}</p>
                         </td>
                         <td class="px-3 py-3 text-slate-600">
-                          {{ post.scheduledAt | date: 'MMM d, h:mm a' }}
+                          {{ scheduledDisplay(post) }}
                         </td>
                         <td class="px-3 py-3">
                           <span
@@ -475,7 +475,7 @@ import { MediaService } from '../media/media.service';
                     (drop)="dropOnDay(day.date)"
                   >
                     <p class="text-xs font-semibold text-slate-700">
-                      {{ day.date | date: 'MMM d' }}
+                      {{ day.label }}
                     </p>
                     @for (post of day.posts; track post.id) {
                       <div
@@ -539,7 +539,7 @@ import { MediaService } from '../media/media.service';
                 </span>
                 <div>
                   <p class="text-sm font-semibold text-slate-900">SocialHub Preview</p>
-                  <p class="text-xs text-slate-500">{{ post.scheduledAt | date: 'medium' }}</p>
+                  <p class="text-xs text-slate-500">{{ scheduledDisplay(post) }}</p>
                 </div>
               </div>
               <p class="whitespace-pre-line text-sm text-slate-700">
@@ -646,13 +646,17 @@ export class ScheduleDetails implements OnInit, OnDestroy {
     }
     const groups = new Map<string, SchedulePost[]>();
     for (const post of schedule.posts.filter((item) => this.isWaitingPost(item))) {
-      const day = post.scheduledAt.slice(0, 10);
+      const day = this.dateKeyInZone(post.scheduledAt, schedule.timezone);
       groups.set(day, [...(groups.get(day) ?? []), post]);
     }
     return [...groups.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(0, 8)
-      .map(([date, posts]) => ({ date, posts }));
+      .map(([date, posts]) => ({
+        date,
+        label: this.dateLabelInZone(posts[0]?.scheduledAt ?? date, schedule.timezone),
+        posts,
+      }));
   });
 
   constructor() {
@@ -806,6 +810,11 @@ export class ScheduleDetails implements OnInit, OnDestroy {
     return this.customTimes[post.id] ?? this.toDateTimeLocal(post.scheduledAtOverride) ?? '';
   }
 
+  protected scheduledDisplay(post: SchedulePost): string {
+    const schedule = this.schedule();
+    return this.dateTimeLabelInZone(post.scheduledAt, schedule?.timezone);
+  }
+
   protected setCustomTime(post: SchedulePost): void {
     const schedule = this.schedule();
     if (!schedule) {
@@ -862,6 +871,57 @@ export class ScheduleDetails implements OnInit, OnDestroy {
     const suffix = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutePart.padStart(2, '0')} ${suffix}`;
+  }
+
+  private dateTimeLabelInZone(value: string, timezone?: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return this.safeFormatter(timezone, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(date);
+  }
+
+  private dateLabelInZone(value: string, timezone?: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return this.safeFormatter(timezone, {
+      month: 'short',
+      day: 'numeric',
+    }).format(date);
+  }
+
+  private dateKeyInZone(value: string, timezone?: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value.slice(0, 10);
+    }
+    const parts = this.safeFormatter(timezone, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  }
+
+  private safeFormatter(
+    timezone: string | undefined,
+    options: Intl.DateTimeFormatOptions,
+  ): Intl.DateTimeFormat {
+    const timeZone = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    try {
+      return new Intl.DateTimeFormat('en', { ...options, timeZone });
+    } catch {
+      return new Intl.DateTimeFormat('en', options);
+    }
   }
 
   private toDateTimeLocal(value?: string): string | null {

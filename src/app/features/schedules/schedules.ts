@@ -1,4 +1,4 @@
-import { DatePipe, DecimalPipe, NgClass, NgTemplateOutlet } from '@angular/common';
+import { DecimalPipe, NgClass, NgTemplateOutlet } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -25,7 +25,6 @@ import { SchedulesService } from './schedules.service';
   imports: [
     FormsModule,
     RouterLink,
-    DatePipe,
     DecimalPipe,
     NgClass,
     NgTemplateOutlet,
@@ -190,7 +189,7 @@ import { SchedulesService } from './schedules.service';
             @for (day of calendarDays(); track day.date) {
               <div class="min-h-40 rounded-lg border border-slate-200 p-3">
                 <p class="text-sm font-semibold text-slate-800">
-                  {{ day.date | date: 'EEE, MMM d' }}
+                  {{ day.label }}
                 </p>
                 <div class="mt-3 space-y-2">
                   @for (item of day.items; track item.post.id) {
@@ -201,7 +200,7 @@ import { SchedulesService } from './schedules.service';
                       <span class="font-medium text-slate-800">{{ item.post.title }}</span>
                       <span class="mt-1 flex items-center gap-1 text-slate-500">
                         <span>{{ platformMeta[item.post.platform].icon }}</span>
-                        {{ item.post.scheduledAt | date: 'shortTime' }}
+                        {{ dateTimeInZone(item.post.scheduledAt, item.schedule.timezone, 'time') }}
                       </span>
                     </a>
                   } @empty {
@@ -263,7 +262,7 @@ import { SchedulesService } from './schedules.service';
                     />
                   </td>
                   <td class="px-3 py-3 text-slate-600">
-                    {{ schedule.nextPostAt ? (schedule.nextPostAt | date: 'short') : 'None' }}
+                    {{ schedule.nextPostAt ? dateTimeInZone(schedule.nextPostAt, schedule.timezone) : 'None' }}
                   </td>
                   <td class="px-4 py-3 text-right">
                     <ng-container
@@ -323,9 +322,7 @@ import { SchedulesService } from './schedules.service';
                 <div>
                   <p class="text-xs text-slate-400">Next post</p>
                   <p class="font-medium text-slate-700">
-                    {{
-                      schedule.nextPostAt ? (schedule.nextPostAt | date: 'MMM d, h:mm a') : 'None'
-                    }}
+                    {{ schedule.nextPostAt ? dateTimeInZone(schedule.nextPostAt, schedule.timezone) : 'None' }}
                   </p>
                 </div>
               </div>
@@ -527,14 +524,18 @@ export class Schedules implements OnInit {
     const groups = new Map<string, { schedule: Schedule; post: Schedule['posts'][number] }[]>();
     for (const schedule of this.filteredSchedules()) {
       for (const post of schedule.posts) {
-        const key = post.scheduledAt.slice(0, 10);
+        const key = this.dateKeyInZone(post.scheduledAt, schedule.timezone);
         groups.set(key, [...(groups.get(key) ?? []), { schedule, post }]);
       }
     }
     return [...groups.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(0, 16)
-      .map(([date, items]) => ({ date, items }));
+      .map(([date, items]) => ({
+        date,
+        label: this.dateTimeInZone(items[0]?.post.scheduledAt ?? date, items[0]?.schedule.timezone, 'day'),
+        items,
+      }));
   }
 
   ngOnInit(): void {
@@ -652,6 +653,50 @@ export class Schedules implements OnInit {
     const suffix = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutePart.padStart(2, '0')} ${suffix}`;
+  }
+
+  protected dateTimeInZone(
+    value: string,
+    timezone?: string,
+    mode: 'datetime' | 'day' | 'time' = 'datetime',
+  ): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    const options: Intl.DateTimeFormatOptions =
+      mode === 'day'
+        ? { weekday: 'short', month: 'short', day: 'numeric' }
+        : mode === 'time'
+          ? { hour: 'numeric', minute: '2-digit' }
+          : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+    return this.safeFormatter(timezone, options).format(date);
+  }
+
+  private dateKeyInZone(value: string, timezone?: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value.slice(0, 10);
+    }
+    const parts = this.safeFormatter(timezone, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const part = (type: string) => parts.find((item) => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  }
+
+  private safeFormatter(
+    timezone: string | undefined,
+    options: Intl.DateTimeFormatOptions,
+  ): Intl.DateTimeFormat {
+    const timeZone = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    try {
+      return new Intl.DateTimeFormat('en', { ...options, timeZone });
+    } catch {
+      return new Intl.DateTimeFormat('en', options);
+    }
   }
 
   private compareSchedules(a: Schedule, b: Schedule): number {
