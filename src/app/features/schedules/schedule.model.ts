@@ -47,6 +47,7 @@ export interface SchedulePost {
   scheduledAt: string;
   status: SchedulePostStatus;
   publishedAt?: string;
+  targetAccountName?: string;
   mediaAssetId?: number;
   mediaType?: 'IMAGE' | 'VIDEO';
   thumbnailUrl?: string;
@@ -64,6 +65,7 @@ export interface SchedulePost {
   hasMedia: boolean;
   hasCaption: boolean;
   timeOverride?: string;
+  scheduledAtOverride?: string;
   sortOrder?: number;
 }
 

@@ -260,6 +260,9 @@ import { MediaService } from '../media/media.service';
                           <span class="rounded-full border px-2 py-1 text-[11px] font-bold" [ngClass]="platformMeta[post.platform].tone">
                             {{ platformMeta[post.platform].icon }} {{ platformMeta[post.platform].label }}
                           </span>
+                          <span class="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
+                            {{ accountLabel(post) }}
+                          </span>
                           <span class="rounded-full px-2 py-1 text-[11px] font-medium" [ngClass]="postStatusClass(post.status)">
                             {{ postStatusLabel(post.status) }}
                           </span>
@@ -272,17 +275,17 @@ import { MediaService } from '../media/media.service';
                         <p class="text-sm font-medium text-slate-700">{{ post.scheduledAt | date: 'MMM d, h:mm a' }}</p>
                       </div>
                       <label>
-                        <span class="text-xs text-slate-500">Override time</span>
+                        <span class="text-xs text-slate-500">Custom date/time</span>
                         <input
-                          type="time"
+                          type="datetime-local"
                           class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-                          [ngModel]="customTimeValue(post)"
+                          [ngModel]="customDateTimeValue(post)"
                           (ngModelChange)="customTimes[post.id] = $event"
                         />
                       </label>
                       <div class="flex flex-wrap gap-1.5 sm:justify-end">
                         <button type="button" class="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700" (click)="setCustomTime(post)">Save</button>
-                        @if (post.timeOverride) {
+                        @if (post.scheduledAtOverride || post.timeOverride) {
                           <button type="button" class="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700" (click)="clearCustomTime(post)">Default</button>
                         }
                         <button type="button" class="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700" (click)="selectedPost.set(post)">View</button>
@@ -303,7 +306,7 @@ import { MediaService } from '../media/media.service';
                     <tr>
                       <th class="px-3 py-3">Preview</th>
                       <th class="px-3 py-3">Caption</th>
-                      <th class="px-3 py-3">Platform</th>
+                      <th class="px-3 py-3">Platform / Account</th>
                       <th class="px-3 py-3">Scheduled</th>
                       <th class="px-3 py-3">Status</th>
                       <th class="px-3 py-3">Override</th>
@@ -342,6 +345,7 @@ import { MediaService } from '../media/media.service';
                             {{ platformMeta[post.platform].icon }}
                             {{ platformMeta[post.platform].label }}
                           </span>
+                          <p class="mt-1 text-xs text-slate-500">{{ accountLabel(post) }}</p>
                         </td>
                         <td class="px-3 py-3 text-slate-600">
                           {{ post.scheduledAt | date: 'MMM d, h:mm a' }}
@@ -356,11 +360,11 @@ import { MediaService } from '../media/media.service';
                         <td class="px-3 py-3">
                           <div class="flex items-center gap-2">
                             <input
-                              type="time"
-                              class="w-28 rounded-md border border-slate-300 px-2 py-1 text-xs"
-                              [ngModel]="customTimeValue(post)"
+                              type="datetime-local"
+                              class="w-44 rounded-md border border-slate-300 px-2 py-1 text-xs"
+                              [ngModel]="customDateTimeValue(post)"
                               (ngModelChange)="customTimes[post.id] = $event"
-                              title="Custom posting time"
+                              title="Custom posting date and time"
                             />
                             <button
                               type="button"
@@ -369,7 +373,7 @@ import { MediaService } from '../media/media.service';
                             >
                               Save
                             </button>
-                            @if (post.timeOverride) {
+                            @if (post.scheduledAtOverride || post.timeOverride) {
                               <button
                                 type="button"
                                 class="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
@@ -798,8 +802,8 @@ export class ScheduleDetails implements OnInit, OnDestroy {
     return ['pending', 'scheduled', 'not_posted', 'failed', 'paused'].includes(post.status);
   }
 
-  protected customTimeValue(post: SchedulePost): string {
-    return this.customTimes[post.id] ?? post.timeOverride ?? '';
+  protected customDateTimeValue(post: SchedulePost): string {
+    return this.customTimes[post.id] ?? this.toDateTimeLocal(post.scheduledAtOverride) ?? '';
   }
 
   protected setCustomTime(post: SchedulePost): void {
@@ -807,10 +811,10 @@ export class ScheduleDetails implements OnInit, OnDestroy {
     if (!schedule) {
       return;
     }
-    const raw = this.customTimes[post.id] ?? post.timeOverride ?? '';
-    const value = raw.trim() || null;
+    const raw = this.customTimes[post.id] ?? this.toDateTimeLocal(post.scheduledAtOverride) ?? '';
+    const value = raw.trim() ? new Date(raw).toISOString() : null;
     this.schedules.setPostTimeOverride(schedule.id, post.id, value);
-    this.notifications.success(value ? 'Custom posting time saved.' : 'Post will use the schedule default time.');
+    this.notifications.success(value ? 'Custom posting date/time saved.' : 'Post will use the schedule default time.');
   }
 
   protected clearCustomTime(post: SchedulePost): void {
@@ -841,6 +845,10 @@ export class ScheduleDetails implements OnInit, OnDestroy {
     return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   }
 
+  protected accountLabel(post: SchedulePost): string {
+    return post.targetAccountName || (post.socialIntegrationId ? `Account #${post.socialIntegrationId}` : 'No account');
+  }
+
   protected previewUrl(post: SchedulePost): string | null {
     return (post.mediaType === 'IMAGE' && post.mediaAssetId ? this.previewUrls().get(post.id) : null) ?? post.thumbnailUrl ?? null;
   }
@@ -854,6 +862,18 @@ export class ScheduleDetails implements OnInit, OnDestroy {
     const suffix = hour >= 12 ? 'PM' : 'AM';
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutePart.padStart(2, '0')} ${suffix}`;
+  }
+
+  private toDateTimeLocal(value?: string): string | null {
+    if (!value) {
+      return null;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return null;
+    }
+    const pad = (part: number) => String(part).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 
   protected engagement(post: SchedulePost): number {

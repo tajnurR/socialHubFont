@@ -119,8 +119,10 @@ The post-management and schedules UI now reflect the safer publish lifecycle:
   post only
 - Schedule cards and details display posting times in 12-hour AM/PM format.
 - Editing schedule posting time/date range updates waiting linked posts to the
-  recalculated schedule slots; optional per-post override fields are blank by
-  default and only replace the time for that specific post.
+  recalculated schedule slots. Slots are generated separately per platform/account
+  queue, so one account's posts do not push another account's posts later.
+- Optional per-post custom date/time fields are blank by default and only replace
+  that specific post's generated queue slot when saved.
 - Schedule linked-post previews load through authenticated media downloads when
   a media library asset is attached, and the linked-post action layout uses
   compact responsive cards/table controls across mobile, tablet, and laptop

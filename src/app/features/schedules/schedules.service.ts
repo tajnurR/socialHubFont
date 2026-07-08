@@ -400,12 +400,10 @@ export class SchedulesService {
       .subscribe();
   }
 
-  setPostTimeOverride(scheduleId: string, postId: string, timeOverride: string | null): void {
+  setPostTimeOverride(scheduleId: string, postId: string, scheduledAtOverride: string | null): void {
     const schedule = this.schedule(scheduleId);
     const post = schedule?.posts.find((item) => item.id === postId);
-    const scheduledAt = schedule && post
-      ? buildDateTime(schedule.startDate, timeOverride || schedule.postingTime, post.sortOrder ?? 0)
-      : undefined;
+    const scheduledAt = scheduledAtOverride ?? (schedule && post ? scheduleSlot(schedule, Math.max(0, queueIndex(schedule, post)), schedule.postingTime) : undefined);
     this._schedules.update((items) =>
       items.map((schedule) => {
         if (schedule.id !== scheduleId) {
@@ -415,7 +413,8 @@ export class SchedulesService {
           post.id === postId
             ? {
                 ...post,
-                timeOverride: timeOverride ?? undefined,
+                scheduledAtOverride: scheduledAtOverride ?? undefined,
+                timeOverride: undefined,
                 scheduledAt: scheduledAt ?? post.scheduledAt,
                 status: 'pending' as SchedulePostStatus,
               }
@@ -432,7 +431,7 @@ export class SchedulesService {
     this.api
       .post<ApiSchedule>(
         ApiEndpoint.SCHEDULE_POST_TIME_OVERRIDE,
-        { timeOverride },
+        { scheduledAtOverride },
         { pathParams: { scheduleId: numericScheduleId, postId: numericPostId } },
       )
       .pipe(
@@ -960,13 +959,17 @@ function buildDateTime(date: string, time: string, addDays: number): string {
 }
 
 function recomputeSchedulePostTimes(schedule: Schedule): SchedulePost[] {
-  return schedule.posts.map((post, index) => {
+  const indexes = new Map<string, number>();
+  return schedule.posts.map((post) => {
     if (post.status === 'posted' || post.status === 'processing') {
       return post;
     }
+    const key = queueKey(post);
+    const queueIndex = indexes.get(key) ?? 0;
+    indexes.set(key, queueIndex + 1);
     return {
       ...post,
-      scheduledAt: scheduleSlot(schedule, post.sortOrder ?? index, post.timeOverride || schedule.postingTime),
+      scheduledAt: post.scheduledAtOverride ?? scheduleSlot(schedule, queueIndex, post.timeOverride || schedule.postingTime),
     };
   });
 }
@@ -992,6 +995,17 @@ function scheduleSlot(schedule: Schedule, index: number, time: string): string {
       break;
   }
   return base.toISOString();
+}
+
+function queueIndex(schedule: Schedule, target: SchedulePost): number {
+  return schedule.posts
+    .filter((post) => queueKey(post) === queueKey(target))
+    .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || Number(a.id) - Number(b.id))
+    .findIndex((post) => post.id === target.id);
+}
+
+function queueKey(post: SchedulePost): string {
+  return `${post.platform}|${post.socialIntegrationId ?? 'NO_ACCOUNT'}`;
 }
 
 function todayDate(): string {
@@ -1097,6 +1111,7 @@ interface ApiSchedulePost {
   scheduledAt?: string | null;
   status?: string | null;
   socialIntegrationId?: number | null;
+  targetAccountName?: string | null;
   mediaAssetId?: number | null;
   mediaType?: 'IMAGE' | 'VIDEO' | null;
   thumbnailUrl?: string | null;
@@ -1105,6 +1120,7 @@ interface ApiSchedulePost {
   hashtags?: string[] | null;
   cta?: string | null;
   timeOverride?: string | null;
+  scheduledAtOverride?: string | null;
   publishedAt?: string | null;
   sortOrder?: number;
   engagement?: {
@@ -1216,6 +1232,7 @@ function apiToPost(api: ApiSchedulePost, scheduleId: string): SchedulePost {
     scheduledAt: api.scheduledAt ?? new Date().toISOString(),
     status: postStatusFromApi(api.status),
     publishedAt: api.publishedAt ?? undefined,
+    targetAccountName: api.targetAccountName ?? undefined,
     mediaAssetId: api.mediaAssetId ?? undefined,
     mediaType: api.mediaType ?? undefined,
     thumbnailUrl: api.thumbnailUrl ?? mediaUrl,
@@ -1233,6 +1250,7 @@ function apiToPost(api: ApiSchedulePost, scheduleId: string): SchedulePost {
     hasMedia: Boolean(mediaUrl),
     hasCaption: caption.trim().length > 0,
     timeOverride: api.timeOverride ? trimTime(api.timeOverride) : undefined,
+    scheduledAtOverride: api.scheduledAtOverride ?? undefined,
     sortOrder: api.sortOrder ?? 0,
   };
 }
