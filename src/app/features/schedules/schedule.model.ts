@@ -47,6 +47,8 @@ export interface SchedulePost {
   scheduledAt: string;
   status: SchedulePostStatus;
   publishedAt?: string;
+  mediaAssetId?: number;
+  mediaType?: 'IMAGE' | 'VIDEO';
   thumbnailUrl?: string;
   mediaUrl?: string;
   link?: string;

@@ -1,5 +1,5 @@
 import { DatePipe, DecimalPipe, NgClass, SlicePipe } from '@angular/common';
-import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ConfirmService } from '../../core/services/confirm.service';
@@ -14,6 +14,7 @@ import {
 } from './schedule.model';
 import { ScheduleEditor } from './schedule-editor';
 import { SchedulesService } from './schedules.service';
+import { MediaService } from '../media/media.service';
 
 @Component({
   selector: 'app-schedule-details',
@@ -144,7 +145,7 @@ import { SchedulesService } from './schedules.service';
                 </div>
                 <div>
                   <p class="text-xs text-slate-400">Time</p>
-                  <p class="font-medium text-slate-800">{{ s.postingTime }} · {{ s.timezone }}</p>
+                  <p class="font-medium text-slate-800">{{ time12(s.postingTime) }} · {{ s.timezone }}</p>
                 </div>
                 <div>
                   <p class="text-xs text-slate-400">Start date</p>
@@ -237,8 +238,67 @@ import { SchedulesService } from './schedules.service';
                 </select>
               </div>
 
-              <div class="overflow-x-auto">
-                <table class="w-full min-w-[900px] text-left text-sm">
+              <div class="grid gap-3 xl:hidden">
+                @for (post of filteredPosts(); track post.id) {
+                  <article class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <div class="flex gap-3">
+                      <button
+                        type="button"
+                        class="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-slate-100"
+                        (click)="selectedPost.set(post)"
+                      >
+                        @if (previewUrl(post)) {
+                          <img [src]="previewUrl(post) || ''" alt="" class="h-full w-full object-cover" />
+                        } @else {
+                          <span class="flex h-full w-full items-center justify-center text-xs text-slate-400">No media</span>
+                        }
+                      </button>
+                      <div class="min-w-0 flex-1">
+                        <p class="truncate font-medium text-slate-900">{{ post.title }}</p>
+                        <p class="mt-1 line-clamp-2 text-xs text-slate-500">{{ post.caption }}</p>
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                          <span class="rounded-full border px-2 py-1 text-[11px] font-bold" [ngClass]="platformMeta[post.platform].tone">
+                            {{ platformMeta[post.platform].icon }} {{ platformMeta[post.platform].label }}
+                          </span>
+                          <span class="rounded-full px-2 py-1 text-[11px] font-medium" [ngClass]="postStatusClass(post.status)">
+                            {{ postStatusLabel(post.status) }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_150px_auto] sm:items-end">
+                      <div>
+                        <p class="text-xs text-slate-500">Scheduled</p>
+                        <p class="text-sm font-medium text-slate-700">{{ post.scheduledAt | date: 'MMM d, h:mm a' }}</p>
+                      </div>
+                      <label>
+                        <span class="text-xs text-slate-500">Override time</span>
+                        <input
+                          type="time"
+                          class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
+                          [ngModel]="customTimeValue(post)"
+                          (ngModelChange)="customTimes[post.id] = $event"
+                        />
+                      </label>
+                      <div class="flex flex-wrap gap-1.5 sm:justify-end">
+                        <button type="button" class="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700" (click)="setCustomTime(post)">Save</button>
+                        @if (post.timeOverride) {
+                          <button type="button" class="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700" (click)="clearCustomTime(post)">Default</button>
+                        }
+                        <button type="button" class="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700" (click)="selectedPost.set(post)">View</button>
+                        <button type="button" class="rounded-md border border-red-100 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600" (click)="removeFromSchedule(post)">Remove</button>
+                      </div>
+                    </div>
+                  </article>
+                } @empty {
+                  <p class="rounded-lg border border-dashed border-slate-200 px-3 py-8 text-center text-sm text-slate-400">
+                    No posts are waiting for this schedule. Add draft posts from the Add Post list.
+                  </p>
+                }
+              </div>
+
+              <div class="hidden overflow-x-auto xl:block">
+                <table class="w-full min-w-[820px] text-left text-sm">
                   <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                     <tr>
                       <th class="px-3 py-3">Preview</th>
@@ -246,7 +306,8 @@ import { SchedulesService } from './schedules.service';
                       <th class="px-3 py-3">Platform</th>
                       <th class="px-3 py-3">Scheduled</th>
                       <th class="px-3 py-3">Status</th>
-                      <th class="px-3 py-3 text-right">Actions</th>
+                      <th class="px-3 py-3">Override</th>
+                      <th class="w-32 px-3 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody class="divide-y divide-slate-100">
@@ -258,12 +319,14 @@ import { SchedulesService } from './schedules.service';
                             class="block h-14 w-20 overflow-hidden rounded-lg bg-slate-100"
                             (click)="selectedPost.set(post)"
                           >
-                            @if (post.thumbnailUrl) {
+                            @if (previewUrl(post)) {
                               <img
-                                [src]="post.thumbnailUrl"
+                                [src]="previewUrl(post) || ''"
                                 alt=""
                                 class="h-full w-full object-cover"
                               />
+                            } @else {
+                              <span class="flex h-full w-full items-center justify-center text-[11px] text-slate-400">No media</span>
                             }
                           </button>
                         </td>
@@ -281,7 +344,7 @@ import { SchedulesService } from './schedules.service';
                           </span>
                         </td>
                         <td class="px-3 py-3 text-slate-600">
-                          {{ post.scheduledAt | date: 'medium' }}
+                          {{ post.scheduledAt | date: 'MMM d, h:mm a' }}
                         </td>
                         <td class="px-3 py-3">
                           <span
@@ -290,51 +353,55 @@ import { SchedulesService } from './schedules.service';
                             >{{ postStatusLabel(post.status) }}</span
                           >
                         </td>
-                        <td class="px-3 py-3 text-right">
-                          <div class="flex flex-wrap items-center justify-end gap-2">
+                        <td class="px-3 py-3">
+                          <div class="flex items-center gap-2">
                             <input
                               type="time"
-                              class="w-28 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                              class="w-28 rounded-md border border-slate-300 px-2 py-1 text-xs"
                               [ngModel]="customTimeValue(post)"
                               (ngModelChange)="customTimes[post.id] = $event"
                               title="Custom posting time"
                             />
                             <button
                               type="button"
-                              class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
+                              class="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
                               (click)="setCustomTime(post)"
                             >
-                              Set Time
+                              Save
                             </button>
                             @if (post.timeOverride) {
                               <button
                                 type="button"
-                                class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
+                                class="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
                                 (click)="clearCustomTime(post)"
                               >
-                                Use Default
+                                Default
                               </button>
                             }
+                          </div>
+                        </td>
+                        <td class="px-3 py-3 text-right">
+                          <div class="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
-                              class="rounded-lg border border-red-100 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                              (click)="removeFromSchedule(post)"
+                              class="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
+                              (click)="selectedPost.set(post)"
                             >
-                              Remove
+                              View
                             </button>
                             <button
                               type="button"
-                              class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700"
-                              (click)="selectedPost.set(post)"
+                              class="rounded-md border border-red-100 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                              (click)="removeFromSchedule(post)"
                             >
-                              Preview
+                              Remove
                             </button>
                           </div>
                         </td>
                       </tr>
                     } @empty {
                       <tr>
-                        <td colspan="6" class="px-3 py-8 text-center text-sm text-slate-400">
+                        <td colspan="7" class="px-3 py-8 text-center text-sm text-slate-400">
                           No posts are waiting for this schedule. Add draft posts from the Add Post list.
                         </td>
                       </tr>
@@ -474,9 +541,9 @@ import { SchedulesService } from './schedules.service';
               <p class="whitespace-pre-line text-sm text-slate-700">
                 {{ post.caption || '(missing caption)' }}
               </p>
-              @if (post.thumbnailUrl) {
+              @if (previewUrl(post)) {
                 <img
-                  [src]="post.thumbnailUrl"
+                  [src]="previewUrl(post) || ''"
                   alt=""
                   class="mt-3 max-h-72 w-full rounded-lg object-cover"
                 />
@@ -525,10 +592,11 @@ import { SchedulesService } from './schedules.service';
     }
   `,
 })
-export class ScheduleDetails implements OnInit {
+export class ScheduleDetails implements OnInit, OnDestroy {
   readonly id = input.required<string>();
 
   private readonly schedules = inject(SchedulesService);
+  private readonly mediaService = inject(MediaService);
   private readonly notifications = inject(NotificationService);
   private readonly confirm = inject(ConfirmService);
 
@@ -540,6 +608,8 @@ export class ScheduleDetails implements OnInit {
   protected readonly moreOpen = signal(false);
   protected readonly dragPostId = signal<string | null>(null);
   protected customTimes: Record<string, string> = {};
+  protected readonly previewUrls = signal<Map<string, string>>(new Map());
+  private readonly objectUrls = new Map<string, string>();
 
   protected readonly schedule = computed(() => this.schedules.schedule(this.id()));
   protected filteredPosts(): SchedulePost[] {
@@ -581,8 +651,18 @@ export class ScheduleDetails implements OnInit {
       .map(([date, posts]) => ({ date, posts }));
   });
 
+  constructor() {
+    effect(() => {
+      this.syncPreviewUrls(this.filteredPosts());
+    });
+  }
+
   ngOnInit(): void {
     this.schedules.load();
+  }
+
+  ngOnDestroy(): void {
+    this.revokePreviewUrls();
   }
 
   protected edit(): void {
@@ -719,7 +799,7 @@ export class ScheduleDetails implements OnInit {
   }
 
   protected customTimeValue(post: SchedulePost): string {
-    return this.customTimes[post.id] ?? post.timeOverride ?? this.timeFromIso(post.scheduledAt);
+    return this.customTimes[post.id] ?? post.timeOverride ?? '';
   }
 
   protected setCustomTime(post: SchedulePost): void {
@@ -727,9 +807,10 @@ export class ScheduleDetails implements OnInit {
     if (!schedule) {
       return;
     }
-    const value = this.customTimes[post.id] ?? post.timeOverride ?? this.timeFromIso(post.scheduledAt);
+    const raw = this.customTimes[post.id] ?? post.timeOverride ?? '';
+    const value = raw.trim() || null;
     this.schedules.setPostTimeOverride(schedule.id, post.id, value);
-    this.notifications.success('Custom posting time saved.');
+    this.notifications.success(value ? 'Custom posting time saved.' : 'Post will use the schedule default time.');
   }
 
   protected clearCustomTime(post: SchedulePost): void {
@@ -760,6 +841,21 @@ export class ScheduleDetails implements OnInit {
     return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
   }
 
+  protected previewUrl(post: SchedulePost): string | null {
+    return (post.mediaType === 'IMAGE' && post.mediaAssetId ? this.previewUrls().get(post.id) : null) ?? post.thumbnailUrl ?? null;
+  }
+
+  protected time12(value: string): string {
+    const [hourPart, minutePart = '00'] = value.split(':');
+    const hour = Number(hourPart);
+    if (!Number.isFinite(hour)) {
+      return value;
+    }
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutePart.padStart(2, '0')} ${suffix}`;
+  }
+
   protected engagement(post: SchedulePost): number {
     return (
       post.engagement.likes +
@@ -778,6 +874,43 @@ export class ScheduleDetails implements OnInit {
       .split('_')
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(' ');
+  }
+
+  private syncPreviewUrls(posts: SchedulePost[]): void {
+    const currentIds = new Set(posts.map((post) => post.id));
+    for (const [postId, url] of this.objectUrls) {
+      if (!currentIds.has(postId)) {
+        URL.revokeObjectURL(url);
+        this.objectUrls.delete(postId);
+      }
+    }
+    this.previewUrls.set(new Map(this.objectUrls));
+    for (const post of posts) {
+      if (post.mediaType !== 'IMAGE' || !post.mediaAssetId || this.objectUrls.has(post.id)) {
+        continue;
+      }
+      this.mediaService.download(post.mediaAssetId).subscribe({
+        next: (blob) => {
+          const existing = this.objectUrls.get(post.id);
+          if (existing) {
+            URL.revokeObjectURL(existing);
+          }
+          this.objectUrls.set(post.id, URL.createObjectURL(blob));
+          this.previewUrls.set(new Map(this.objectUrls));
+        },
+        error: () => {
+          // Keep the raw thumbnail fallback if the authenticated preview cannot load.
+        },
+      });
+    }
+  }
+
+  private revokePreviewUrls(): void {
+    for (const url of this.objectUrls.values()) {
+      URL.revokeObjectURL(url);
+    }
+    this.objectUrls.clear();
+    this.previewUrls.set(new Map());
   }
 
   protected postStatusClass(status: SchedulePostStatus): string {

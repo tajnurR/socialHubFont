@@ -248,7 +248,7 @@ import { SchedulesService } from './schedules.service';
                     />
                   </td>
                   <td class="px-3 py-3 text-slate-600">
-                    {{ title(schedule.scheduleType) }} · {{ schedule.postingTime }}
+                    {{ title(schedule.scheduleType) }} · {{ time12(schedule.postingTime) }}
                   </td>
                   <td class="px-3 py-3">
                     <ng-container
@@ -314,7 +314,7 @@ import { SchedulesService } from './schedules.service';
                 </div>
                 <div>
                   <p class="text-xs text-slate-400">Time</p>
-                  <p class="font-medium text-slate-700">{{ schedule.postingTime }}</p>
+                  <p class="font-medium text-slate-700">{{ time12(schedule.postingTime) }}</p>
                 </div>
                 <div>
                   <p class="text-xs text-slate-400">Timezone</p>
@@ -413,37 +413,37 @@ import { SchedulesService } from './schedules.service';
     </ng-template>
 
     <ng-template #actions let-schedule>
-      <div class="flex flex-wrap justify-end gap-2">
+      <div class="flex flex-wrap justify-end gap-1.5">
         <a
           [routerLink]="['/schedules', schedule.id]"
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
         >
           View
         </a>
         <button
           type="button"
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
           (click)="edit(schedule)"
         >
           Edit
         </button>
         <button
           type="button"
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
           (click)="togglePause(schedule)"
         >
           {{ schedule.status === 'paused' ? 'Resume' : 'Pause' }}
         </button>
         <button
           type="button"
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
           (click)="duplicate(schedule)"
         >
           Duplicate
         </button>
         <button
           type="button"
-          class="rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+          class="rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
           (click)="delete(schedule)"
         >
           Delete
@@ -641,6 +641,17 @@ export class Schedules implements OnInit {
 
   protected platformTone(platform: string): string {
     return PLATFORM_META[platform as SchedulePlatform]?.tone ?? 'border-slate-200 text-slate-600';
+  }
+
+  protected time12(value: string): string {
+    const [hourPart, minutePart = '00'] = value.split(':');
+    const hour = Number(hourPart);
+    if (!Number.isFinite(hour)) {
+      return value;
+    }
+    const suffix = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutePart.padStart(2, '0')} ${suffix}`;
   }
 
   private compareSchedules(a: Schedule, b: Schedule): number {

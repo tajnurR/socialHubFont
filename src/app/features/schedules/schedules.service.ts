@@ -160,7 +160,7 @@ export class SchedulesService {
     const existing = this.schedule(id);
     const platforms = platformsForDraft(draft);
     const targetPlatform = platforms[0];
-    const schedule: Schedule = normalize({
+    let schedule: Schedule = normalize({
       id,
       name: draft.name.trim(),
       description: draft.description?.trim(),
@@ -188,6 +188,9 @@ export class SchedulesService {
       notifications: draft.notifications,
       posts: existing?.posts ?? [],
     });
+    if (existing) {
+      schedule = normalize({ ...schedule, posts: recomputeSchedulePostTimes(schedule) });
+    }
 
     this._schedules.update((items) => {
       const index = items.findIndex((item) => item.id === id);
@@ -956,6 +959,41 @@ function buildDateTime(date: string, time: string, addDays: number): string {
   return d.toISOString();
 }
 
+function recomputeSchedulePostTimes(schedule: Schedule): SchedulePost[] {
+  return schedule.posts.map((post, index) => {
+    if (post.status === 'posted' || post.status === 'processing') {
+      return post;
+    }
+    return {
+      ...post,
+      scheduledAt: scheduleSlot(schedule, post.sortOrder ?? index, post.timeOverride || schedule.postingTime),
+    };
+  });
+}
+
+function scheduleSlot(schedule: Schedule, index: number, time: string): string {
+  const base = new Date(`${schedule.startDate}T${time}:00`);
+  switch (schedule.scheduleType) {
+    case 'daily':
+      base.setDate(base.getDate() + index);
+      break;
+    case 'weekly':
+      base.setDate(base.getDate() + index * 7);
+      break;
+    case 'monthly':
+      base.setMonth(base.getMonth() + index);
+      break;
+    case 'custom':
+      base.setHours(base.getHours() + (schedule.customIntervalHours ?? 1) * index);
+      break;
+    case 'one-time':
+    default:
+      base.setHours(base.getHours() + index);
+      break;
+  }
+  return base.toISOString();
+}
+
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -1059,6 +1097,9 @@ interface ApiSchedulePost {
   scheduledAt?: string | null;
   status?: string | null;
   socialIntegrationId?: number | null;
+  mediaAssetId?: number | null;
+  mediaType?: 'IMAGE' | 'VIDEO' | null;
+  thumbnailUrl?: string | null;
   mediaUrl?: string | null;
   link?: string | null;
   hashtags?: string[] | null;
@@ -1175,7 +1216,9 @@ function apiToPost(api: ApiSchedulePost, scheduleId: string): SchedulePost {
     scheduledAt: api.scheduledAt ?? new Date().toISOString(),
     status: postStatusFromApi(api.status),
     publishedAt: api.publishedAt ?? undefined,
-    thumbnailUrl: mediaUrl,
+    mediaAssetId: api.mediaAssetId ?? undefined,
+    mediaType: api.mediaType ?? undefined,
+    thumbnailUrl: api.thumbnailUrl ?? mediaUrl,
     mediaUrl,
     link: api.link ?? undefined,
     socialIntegrationId: api.socialIntegrationId ?? undefined,

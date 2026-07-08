@@ -117,6 +117,14 @@ The post-management and schedules UI now reflect the safer publish lifecycle:
 - Schedule View shows only waiting/not-yet-posted rows and provides actions to
   remove a post from the schedule or set/clear a custom posting time for that
   post only
+- Schedule cards and details display posting times in 12-hour AM/PM format.
+- Editing schedule posting time/date range updates waiting linked posts to the
+  recalculated schedule slots; optional per-post override fields are blank by
+  default and only replace the time for that specific post.
+- Schedule linked-post previews load through authenticated media downloads when
+  a media library asset is attached, and the linked-post action layout uses
+  compact responsive cards/table controls across mobile, tablet, and laptop
+  widths.
 - posting time is loaded from the saved schedule and is not reinitialized while
   the editor remains open
 - custom schedules expose an hourly interval so multiple linked posts publish

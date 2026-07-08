@@ -211,7 +211,7 @@ interface PostForm {
         @if (loading()) {
           <p class="px-4 py-8 text-center text-sm text-slate-400">Loading posts...</p>
         } @else {
-          <div class="divide-y divide-slate-100 lg:hidden">
+          <div class="divide-y divide-slate-100 xl:hidden">
             @for (post of pagedPosts(); track post.id) {
               <article class="space-y-3 px-4 py-4">
                 <div class="flex items-start justify-between gap-3">
@@ -324,8 +324,8 @@ interface PostForm {
             }
           </div>
 
-          <div class="hidden overflow-x-auto lg:block">
-            <table class="w-full min-w-[1100px] text-left text-sm">
+          <div class="hidden overflow-x-auto xl:block">
+            <table class="w-full min-w-[980px] text-left text-sm">
               <thead class="bg-slate-50 text-xs uppercase text-slate-500">
                 <tr>
                   <th class="px-4 py-3">
@@ -396,45 +396,17 @@ interface PostForm {
                     </td>
                     <td class="px-4 py-3 text-slate-600">{{ post.updatedAt | date: 'mediumDate' }}</td>
                     <td class="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        class="text-xs font-medium text-slate-600 hover:underline"
-                        (click)="view(post)"
-                      >
-                        View
-                      </button>
-                      <button
-                        type="button"
-                        class="ml-3 text-xs font-medium text-indigo-600 hover:underline"
-                        (click)="openEdit(post)"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        class="ml-3 text-xs font-medium text-red-600 hover:underline"
-                        (click)="remove(post)"
-                      >
-                        Delete
-                      </button>
-                      @if (post.status === 'POSTED') {
-                        <button
-                          type="button"
-                          class="ml-3 text-xs font-medium text-emerald-700 hover:underline"
-                          (click)="clone(post)"
-                        >
-                          Clone
-                        </button>
-                      }
-                      @if (post.status === 'FAILED') {
-                        <button
-                          type="button"
-                          class="ml-3 text-xs font-medium text-amber-700 hover:underline"
-                          (click)="retry(post)"
-                        >
-                          Retry Now
-                        </button>
-                      }
+                      <div class="flex flex-wrap justify-end gap-1.5">
+                        <button type="button" class="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700" (click)="view(post)">View</button>
+                        <button type="button" class="rounded-md border border-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700" (click)="openEdit(post)">Edit</button>
+                        <button type="button" class="rounded-md border border-red-100 px-2 py-1 text-xs font-medium text-red-600" (click)="remove(post)">Delete</button>
+                        @if (post.status === 'POSTED') {
+                          <button type="button" class="rounded-md border border-emerald-100 px-2 py-1 text-xs font-medium text-emerald-700" (click)="clone(post)">Clone</button>
+                        }
+                        @if (post.status === 'FAILED') {
+                          <button type="button" class="rounded-md border border-amber-100 px-2 py-1 text-xs font-medium text-amber-700" (click)="retry(post)">Retry</button>
+                        }
+                      </div>
                     </td>
                   </tr>
                 } @empty {
