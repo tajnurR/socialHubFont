@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Google Drive OAuth Connection Guide - 2026 UI</title>
+  <style>
+    :root {
+      --primary: #5f00d3;
+      --primary-dark: #3b0084;
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --code-bg: #f3f4f6;
+      --success: #138a36;
+      --warning: #b45309;
+      --danger: #b91c1c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 18px 60px;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: #fff;
+      border-radius: 18px;
+      padding: 34px 36px;
+      margin-bottom: 24px;
+      box-shadow: 0 18px 45px rgba(95, 0, 211, 0.22);
+    }
+
+    .hero h1 {
+      margin: 0 0 10px;
+      font-size: 34px;
+      line-height: 1.2;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 850px;
+      color: #efe8ff;
+      font-size: 16px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .pill {
+      background: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #fff;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+    }
+
+    .toc,
+    .section,
+    .note,
+    .final-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 18px;
+      box-shadow: 0 8px 22px rgba(17, 24, 39, 0.04);
+    }
+
+    .toc h2,
+    .section h2,
+    .final-box h2 {
+      margin-top: 0;
+      color: #111827;
+    }
+
+    .toc ol {
+      margin-bottom: 0;
+      columns: 2;
+      column-gap: 34px;
+    }
+
+    .toc a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .toc a:hover {
+      text-decoration: underline;
+    }
+
+    .section h2 {
+      border-left: 5px solid var(--primary);
+      padding-left: 12px;
+      font-size: 24px;
+    }
+
+    .section h3 {
+      color: #111827;
+      margin-top: 22px;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .step-list {
+      padding-left: 22px;
+    }
+
+    .step-list li {
+      margin: 8px 0;
+    }
+
+    code,
+    .code-block {
+      font-family: Consolas, Monaco, 'Courier New', monospace;
+      background: var(--code-bg);
+      color: #111827;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    code {
+      padding: 2px 6px;
+      font-size: 90%;
+    }
+
+    .code-block {
+      display: block;
+      padding: 12px 14px;
+      margin: 10px 0;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    .tip {
+      border-left: 4px solid var(--success);
+      background: #ecfdf3;
+      padding: 12px 14px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+
+    .warning {
+      border-left: 4px solid var(--warning);
+      background: #fff7ed;
+      padding: 12px 14px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+
+    .danger {
+      border-left: 4px solid var(--danger);
+      background: #fef2f2;
+      padding: 12px 14px;
+      border-radius: 8px;
+      margin: 14px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      background: #fff;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--border);
+      padding: 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f9fafb;
+      color: #111827;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #ede9fe;
+      color: var(--primary-dark);
+      margin-right: 7px;
+    }
+
+    .quick-summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .summary-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      background: #fcfcff;
+    }
+
+    .summary-card h3 {
+      margin-top: 0;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      margin-top: 28px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 760px) {
+      .hero {
+        padding: 26px 20px;
+      }
+
+      .hero h1 {
+        font-size: 27px;
+      }
+
+      .toc ol {
+        columns: 1;
+      }
+
+      .quick-summary {
+        grid-template-columns: 1fr;
+      }
+
+      .section,
+      .toc,
+      .note,
+      .final-box {
+        padding: 18px;
+      }
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .page {
+        padding: 0;
+        max-width: 100%;
+      }
+
+      .hero,
+      .toc,
+      .section,
+      .note,
+      .final-box {
+        box-shadow: none;
+        break-inside: avoid;
+      }
+
+      .hero {
+        color: #111827;
+        background: #fff;
+        border: 1px solid var(--border);
+      }
+
+      .hero p,
+      .pill {
+        color: #111827;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="hero">
+      <h1>Google Drive OAuth Connection Guide</h1>
+      <p>
+        A categorized, start-to-end guide for users who need to create Google OAuth credentials and connect their Google Drive account to your application using the 2026 Google Cloud / Google Auth Platform UI.
+      </p>
+      <div class="meta">
+        <span class="pill">For Web Applications</span>
+        <span class="pill">Google Drive Read/Write</span>
+        <span class="pill">OAuth Client ID + Secret</span>
+        <span class="pill">2026 UI Flow</span>
+      </div>
+    </section>
+
+    <section class="toc">
+      <h2>Table of Contents</h2>
+      <ol>
+        <li><a href="#overview">Overview</a></li>
+        <li><a href="#project">Create Google Cloud Project</a></li>
+        <li><a href="#drive-api">Enable Google Drive API</a></li>
+        <li><a href="#auth-platform">Configure Google Auth Platform</a></li>
+        <li><a href="#scopes">Add Google Drive Permissions</a></li>
+        <li><a href="#client">Create OAuth Client</a></li>
+        <li><a href="#credentials">Copy Google Credentials</a></li>
+        <li><a href="#app-form">Fill Your Application Form</a></li>
+        <li><a href="#connect">Connect Google Drive</a></li>
+        <li><a href="#testing">Testing and Production Notes</a></li>
+        <li><a href="#errors">Common Errors</a></li>
+        <li><a href="#mapping">Final Field Mapping</a></li>
+      </ol>
+    </section>
+
+    <section id="overview" class="section">
+      <h2>Overview</h2>
+      <p>
+        Your application asks the user to provide Google OAuth details. That means the user must create a Google Cloud project, create an OAuth client, copy the Client ID and Client Secret, then paste those details into your application.
+      </p>
+      <div class="quick-summary">
+        <div class="summary-card">
+          <h3>What the user creates in Google</h3>
+          <ul>
+            <li>Google Cloud Project</li>
+            <li>Enabled Google Drive API</li>
+            <li>OAuth App Branding</li>
+            <li>OAuth Web Client</li>
+            <li>Client ID and Client Secret</li>
+          </ul>
+        </div>
+        <div class="summary-card">
+          <h3>What the user enters in your app</h3>
+          <ul>
+            <li>Label</li>
+            <li>OAuth Client ID</li>
+            <li>OAuth Client Secret</li>
+            <li>Redirect URI</li>
+            <li>Scopes</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="project" class="section">
+      <h2>Category 1: Create Google Cloud Project</h2>
+      <ol class="step-list">
+        <li>Open <strong>Google Cloud Console</strong>.</li>
+        <li>Click the project selector at the top of the page.</li>
+        <li>Click <strong>New Project</strong>.</li>
+        <li>Enter a project name.</li>
+      </ol>
+      <span class="code-block">Example Project Name:
+My Drive Connection</span>
+      <ol class="step-list" start="5">
+        <li>Click <strong>Create</strong>.</li>
+        <li>Wait a few seconds, then make sure the new project is selected.</li>
+      </ol>
+    </section>
+
+    <section id="drive-api" class="section">
+      <h2>Category 2: Enable Google Drive API</h2>
+      <p>This step allows the application to call Google Drive APIs for reading and writing files.</p>
+      <ol class="step-list">
+        <li>Use the Google Cloud search bar.</li>
+        <li>Search for <strong>Google Drive API</strong>.</li>
+        <li>Open <strong>Google Drive API</strong>.</li>
+        <li>Click <strong>Enable</strong>.</li>
+      </ol>
+      <div class="warning">
+        <strong>Important:</strong> If the Google Drive API is not enabled, your OAuth connection may succeed, but Drive read/write requests can fail later.
+      </div>
+    </section>
+
+    <section id="auth-platform" class="section">
+      <h2>Category 3: Configure Google Auth Platform</h2>
+      <p>Now configure the OAuth app identity. This is what users see on the Google consent screen.</p>
+
+      <h3>3.1 Open Google Auth Platform</h3>
+      <ol class="step-list">
+        <li>From the left menu, open <strong>Google Auth Platform</strong>.</li>
+        <li>Click <strong>Get started</strong>.</li>
+      </ol>
+
+      <h3>3.2 App Information</h3>
+      <p>Fill in the basic application information.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>What to Enter</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>App name</td>
+            <td>Your application name, for example <code>SocialHub</code></td>
+          </tr>
+          <tr>
+            <td>User support email</td>
+            <td>Your email address</td>
+          </tr>
+          <tr>
+            <td>Logo</td>
+            <td>Optional</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>Click <strong>Next</strong>.</p>
+
+      <h3>3.3 Audience</h3>
+      <p>Select who can use this OAuth app.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Option</th>
+            <th>When to Use</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>External</strong></td>
+            <td>Use this when normal Gmail users or users outside your organization will connect their Google Drive.</td>
+          </tr>
+          <tr>
+            <td><strong>Internal</strong></td>
+            <td>Use this only if the app is for users inside the same Google Workspace organization.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>For most public applications, choose <strong>External</strong>. Then click <strong>Next</strong>.</p>
+
+      <h3>3.4 Contact Information</h3>
+      <ol class="step-list">
+        <li>Enter your developer/contact email address.</li>
+        <li>Click <strong>Next</strong>.</li>
+        <li>Click <strong>Create</strong>.</li>
+      </ol>
+      <div class="tip">
+        After this step, the basic OAuth branding is created. Now the left menu items such as <strong>Data Access</strong> and <strong>Clients</strong> become usable.
+      </div>
+    </section>
+
+    <section id="scopes" class="section">
+      <h2>Category 4: Add Google Drive Permission / Scope</h2>
+      <p>The scope defines what your application is allowed to do with the user's Google Drive.</p>
+      <ol class="step-list">
+        <li>Open <strong>Google Auth Platform</strong>.</li>
+        <li>Click <strong>Data Access</strong> from the left menu.</li>
+        <li>Click <strong>Add or remove scopes</strong>.</li>
+        <li>Search for <strong>Drive</strong>.</li>
+        <li>Select the scope your application needs.</li>
+        <li>Click <strong>Save</strong>.</li>
+      </ol>
+
+      <h3>Recommended Scope</h3>
+      <span class="code-block">https://www.googleapis.com/auth/drive.file</span>
+      <p>
+        This is the recommended scope for most apps because it allows the application to create, upload, update, and manage files that the user creates or selects with your app.
+      </p>
+
+      <h3>Other Possible Scopes</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Scope</th>
+            <th>Use Case</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>https://www.googleapis.com/auth/drive.file</code></td>
+            <td>Best for most apps. Access files created or selected by your app.</td>
+          </tr>
+          <tr>
+            <td><code>https://www.googleapis.com/auth/drive.readonly</code></td>
+            <td>Read files from the user's Drive but do not write/update files.</td>
+          </tr>
+          <tr>
+            <td><code>https://www.googleapis.com/auth/drive</code></td>
+            <td>Full Drive read/write access. Use only if truly required.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="warning">
+        Use the smallest scope possible. Full Drive access may require more review and may make users less comfortable granting permission.
+      </div>
+    </section>
+
+    <section id="client" class="section">
+      <h2>Category 5: Create OAuth Client</h2>
+      <ol class="step-list">
+        <li>Open <strong>Google Auth Platform</strong>.</li>
+        <li>Click <strong>Clients</strong> from the left menu.</li>
+        <li>Click <strong>Create Client</strong>.</li>
+        <li>Select <strong>Web application</strong>.</li>
+        <li>Enter a client name.</li>
+      </ol>
+      <span class="code-block">Example Client Name:
+SocialHub Google Drive Client</span>
+
+      <h3>5.1 Authorized JavaScript Origins</h3>
+      <p>Add your frontend origin.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Environment</th>
+            <th>Origin</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Local Development</td>
+            <td><code>http://localhost:4200</code></td>
+          </tr>
+          <tr>
+            <td>Production</td>
+            <td><code>https://your-domain.com</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>5.2 Authorized Redirect URI</h3>
+      <p>This must match your application's redirect URI exactly.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Environment</th>
+            <th>Redirect URI</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Local Development</td>
+            <td><code>http://localhost:4200/settings/social-integrations/storage-drive</code></td>
+          </tr>
+          <tr>
+            <td>Production</td>
+            <td><code>https://your-domain.com/settings/social-integrations/storage-drive</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="danger">
+        <strong>Must match exactly:</strong> The redirect URI in Google Cloud and the redirect URI in your application must be exactly the same. Protocol, domain, path, and trailing slash all matter.
+      </div>
+      <p>Click <strong>Create</strong>.</p>
+    </section>
+
+    <section id="credentials" class="section">
+      <h2>Category 6: Copy Google Credentials</h2>
+      <p>After creating the OAuth client, Google shows two important values:</p>
+      <ul>
+        <li><strong>Client ID</strong></li>
+        <li><strong>Client Secret</strong></li>
+      </ul>
+      <span class="code-block">Client ID example:
+xxxxxxxxxxxx.apps.googleusercontent.com
+
+Client Secret example:
+GOCSPX-xxxxxxxxxxxxxxxx</span>
+      <div class="warning">
+        Keep the Client Secret private. Do not expose it in frontend code, public repositories, screenshots, or logs.
+      </div>
+    </section>
+
+    <section id="app-form" class="section">
+      <h2>Category 7: Fill Your Application Form</h2>
+      <p>Return to your application and complete the Google OAuth credentials form.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Your App Field</th>
+            <th>What to Enter</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Label</td>
+            <td>Any name for this connection, for example <code>My Google Drive</code></td>
+          </tr>
+          <tr>
+            <td>OAuth Client ID</td>
+            <td>Paste the Client ID from Google Cloud.</td>
+          </tr>
+          <tr>
+            <td>OAuth Client Secret</td>
+            <td>Paste the Client Secret from Google Cloud.</td>
+          </tr>
+          <tr>
+            <td>Redirect URI</td>
+            <td>Use the same redirect URI configured in Google Cloud.</td>
+          </tr>
+          <tr>
+            <td>Scopes</td>
+            <td>Use <code>https://www.googleapis.com/auth/drive.file</code> unless your app needs broader access.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>After entering all information, click <strong>Save Google config</strong>.</p>
+    </section>
+
+    <section id="connect" class="section">
+      <h2>Category 8: Connect Google Drive</h2>
+      <ol class="step-list">
+        <li>After saving the Google config, click <strong>Connect Google Drive</strong>.</li>
+        <li>Google opens the OAuth consent screen.</li>
+        <li>Select the Google account you want to connect.</li>
+        <li>Review the requested Drive permission.</li>
+        <li>Click <strong>Allow</strong>.</li>
+        <li>Google redirects back to your application.</li>
+      </ol>
+      <p>
+        Behind the scenes, Google sends an authorization code to your redirect URI. Your backend exchanges that code for an access token and refresh token. The access token is used to call Google Drive. The refresh token is used to get a new access token when the old one expires.
+      </p>
+    </section>
+
+    <section id="testing" class="section">
+      <h2>Category 9: Testing and Production Notes</h2>
+      <h3>Testing Mode</h3>
+      <p>
+        If the OAuth app is still in <strong>Testing</strong> mode, only added test users can connect. If another user tries to connect, they may see an access error.
+      </p>
+      <ol class="step-list">
+        <li>Go to <strong>Google Auth Platform</strong>.</li>
+        <li>Open <strong>Audience</strong>.</li>
+        <li>Add test user email addresses.</li>
+      </ol>
+
+      <h3>Production Mode</h3>
+      <p>
+        For real users, publish the OAuth app to production. Some sensitive or restricted scopes may require Google verification before public use.
+      </p>
+      <div class="tip">
+        If you use <code>drive.file</code>, your app generally follows the least-privilege approach and is easier to explain to users.
+      </div>
+    </section>
+
+    <section id="errors" class="section">
+      <h2>Common Errors and Solutions</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Error</th>
+            <th>Cause</th>
+            <th>Solution</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>redirect_uri_mismatch</code></td>
+            <td>The redirect URI in Google Cloud does not exactly match the one used by the application.</td>
+            <td>Copy the redirect URI from your app and paste it exactly into Google Cloud.</td>
+          </tr>
+          <tr>
+            <td><code>invalid_client</code></td>
+            <td>Wrong Client ID or Client Secret.</td>
+            <td>Copy the credentials again from Google Auth Platform → Clients.</td>
+          </tr>
+          <tr>
+            <td><code>invalid_grant</code></td>
+            <td>The authorization code was already used, expired, or the refresh token was revoked.</td>
+            <td>Reconnect Google Drive from the beginning.</td>
+          </tr>
+          <tr>
+            <td><code>access_denied</code></td>
+            <td>The user denied Google permission.</td>
+            <td>Try again and click Allow.</td>
+          </tr>
+          <tr>
+            <td><code>Google Drive token expired or was revoked</code></td>
+            <td>The stored refresh token is no longer valid.</td>
+            <td>Remove old tokens and reconnect the Google Drive account.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="mapping" class="final-box">
+      <h2>Final Field Mapping for Your Application</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Your App Field</th>
+            <th>Where the User Gets It</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Label</td>
+            <td>User writes any name.</td>
+          </tr>
+          <tr>
+            <td>OAuth Client ID</td>
+            <td>Google Auth Platform → Clients → OAuth Web Client.</td>
+          </tr>
+          <tr>
+            <td>OAuth Client Secret</td>
+            <td>Google Auth Platform → Clients → OAuth Web Client.</td>
+          </tr>
+          <tr>
+            <td>Redirect URI</td>
+            <td>Your app provides it; user must also add the same URI in Google Cloud.</td>
+          </tr>
+          <tr>
+            <td>Scopes</td>
+            <td>Google Auth Platform → Data Access → Drive scopes.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>Short Instruction Version</h3>
+      <ol class="step-list">
+        <li>Create a Google Cloud project.</li>
+        <li>Enable Google Drive API.</li>
+        <li>Configure Google Auth Platform branding.</li>
+        <li>Set Audience as External.</li>
+        <li>Add Drive scope in Data Access.</li>
+        <li>Create a Web OAuth Client.</li>
+        <li>Add the redirect URI from this application.</li>
+        <li>Copy Client ID and Client Secret.</li>
+        <li>Paste them into this form.</li>
+        <li>Save config and connect Google Drive.</li>
+      </ol>
+    </section>
+
+    <p class="footer">Prepared as an HTML guide for Google Drive OAuth connection setup.</p>
+  </main>
+</body>
+</html>

@@ -23,6 +23,7 @@ type IntegrationKey =
   | 'CLAUDE'
   | 'GEMINI';
 type IntegrationAction = 'facebook' | 'google-drive' | 'planned';
+const GOOGLE_DRIVE_GUIDE_URL = '/google_drive_oauth_2026_ui_guide.html';
 
 interface IntegrationDefinition {
   key: IntegrationKey;
@@ -464,6 +465,14 @@ export class IntegrationsList implements OnInit {
   }
 
   protected openHelp(card: IntegrationCard): void {
+    if (card.key === 'GOOGLE_DRIVE') {
+      const guideWindow = window.open(GOOGLE_DRIVE_GUIDE_URL, '_blank', 'noopener,noreferrer');
+      if (!guideWindow) {
+        this.notifications.error('Allow popups for this site to open the Google Drive guide.');
+      }
+      return;
+    }
+
     this.helpCard.set(card);
   }
 
