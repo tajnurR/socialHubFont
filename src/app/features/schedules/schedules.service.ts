@@ -589,15 +589,18 @@ export class SchedulesService {
     const warnings: ConflictWarning[] = [];
     const bySlot = new Map<string, SchedulePost[]>();
     for (const post of schedule.posts) {
-      const key = `${post.platform}|${post.scheduledAt.slice(0, 16)}`;
+      if (!isWaitingSchedulePost(post)) {
+        continue;
+      }
+      const key = `${queueKey(post)}|${post.scheduledAt.slice(0, 16)}`;
       bySlot.set(key, [...(bySlot.get(key) ?? []), post]);
     }
     for (const posts of bySlot.values()) {
       if (posts.length > 1) {
         warnings.push({
           id: `slot-${posts[0].id}`,
-          title: 'Simultaneous platform posts',
-          detail: `${posts.length} posts target ${labelPlatform(posts[0].platform)} at the same time.`,
+          title: 'Simultaneous account posts',
+          detail: `${posts.length} posts target ${queueLabel(posts[0])} at the same time.`,
           severity: 'warning',
           postIds: posts.map((post) => post.id),
         });
@@ -606,15 +609,20 @@ export class SchedulesService {
     if (schedule.dailyPostLimit) {
       const byDay = new Map<string, SchedulePost[]>();
       for (const post of schedule.posts) {
+        if (!isWaitingSchedulePost(post)) {
+          continue;
+        }
         const day = post.scheduledAt.slice(0, 10);
-        byDay.set(day, [...(byDay.get(day) ?? []), post]);
+        const key = `${queueKey(post)}|${day}`;
+        byDay.set(key, [...(byDay.get(key) ?? []), post]);
       }
-      for (const [day, posts] of byDay.entries()) {
+      for (const posts of byDay.values()) {
         if (posts.length > schedule.dailyPostLimit) {
+          const day = posts[0].scheduledAt.slice(0, 10);
           warnings.push({
-            id: `limit-${day}`,
+            id: `limit-${queueKey(posts[0])}-${day}`,
             title: 'Daily post limit exceeded',
-            detail: `${posts.length} posts are planned on ${day}; limit is ${schedule.dailyPostLimit}.`,
+            detail: `${posts.length} posts are planned for ${queueLabel(posts[0])} on ${day}; limit is ${schedule.dailyPostLimit}.`,
             severity: 'critical',
             postIds: posts.map((post) => post.id),
           });
@@ -1018,6 +1026,11 @@ function queueKey(post: SchedulePost): string {
   return `${post.platform}|${post.socialIntegrationId ?? 'NO_ACCOUNT'}`;
 }
 
+function queueLabel(post: SchedulePost): string {
+  const account = post.targetAccountName || (post.socialIntegrationId ? `Account #${post.socialIntegrationId}` : 'No account');
+  return `${labelPlatform(post.platform)} - ${account}`;
+}
+
 function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -1302,6 +1315,10 @@ function platformsForDraft(draft: ScheduleDraft): SchedulePlatform[] {
 
 function isPendingSchedulePost(post: SchedulePost): boolean {
   return post.status === 'pending';
+}
+
+function isWaitingSchedulePost(post: SchedulePost): boolean {
+  return ['pending', 'scheduled', 'not_posted', 'failed', 'paused'].includes(post.status);
 }
 
 function apiToTemplate(api: ApiScheduleTemplate): ScheduleTemplate {
