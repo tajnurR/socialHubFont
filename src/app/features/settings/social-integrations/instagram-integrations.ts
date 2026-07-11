@@ -336,25 +336,46 @@ interface InstagramOAuthMessage {
                     <td class="px-5 py-4 text-sm text-slate-500">
                       {{ account.createdAt | date: 'MMM d, y' }}
                     </td>
-                    <td class="px-5 py-4">
-                      <div class="flex flex-col justify-end gap-2 sm:flex-row">
-                        <button
-                          type="button"
-                          class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                          [disabled]="busy()"
-                          (click)="updateAccount(account)"
-                        >
-                          Update account
-                        </button>
-                        <button
-                          type="button"
-                          class="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
-                          [disabled]="busy()"
-                          (click)="deleteAccount(account)"
-                        >
-                          Delete account
-                        </button>
-                      </div>
+                    <td class="relative px-5 py-4 text-right">
+                      <button
+                        type="button"
+                        class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-lg leading-none text-slate-500 hover:bg-white"
+                        (click)="toggleProfileMenu(account.id)"
+                        aria-label="Open profile actions"
+                      >
+                        ...
+                      </button>
+                      @if (openProfileMenuId() === account.id) {
+                        <div class="absolute right-5 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white p-1 text-left shadow-lg">
+                          <button
+                            type="button"
+                            class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                            [disabled]="busy()"
+                            (click)="reconnectAccount(account)"
+                          >
+                            <span class="text-xs">↗</span>
+                            Reconnect
+                          </button>
+                          <button
+                            type="button"
+                            class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                            [disabled]="busy()"
+                            (click)="updateAccount(account)"
+                          >
+                            <span class="text-xs">✎</span>
+                            Update
+                          </button>
+                          <button
+                            type="button"
+                            class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-amber-700 hover:bg-amber-50"
+                            [disabled]="busy()"
+                            (click)="removeAccount(account)"
+                          >
+                            <span class="text-xs">⌫</span>
+                            Remove
+                          </button>
+                        </div>
+                      }
                     </td>
                   </tr>
                 }
@@ -382,6 +403,7 @@ export class InstagramIntegrations implements OnInit {
   protected readonly showForm = signal(false);
   protected readonly secretVisible = signal(false);
   protected readonly busyConfigId = signal<number | null>(null);
+  protected readonly openProfileMenuId = signal<number | null>(null);
   protected readonly pageIndex = signal(0);
   protected readonly pageSize = 10;
   protected readonly skeletonRows = Array.from({ length: 5 }, (_, index) => index);
@@ -484,6 +506,10 @@ export class InstagramIntegrations implements OnInit {
     this.pageIndex.set(Math.max(0, Math.min(page, this.totalPages() - 1)));
   }
 
+  protected toggleProfileMenu(id: number): void {
+    this.openProfileMenuId.update((current) => (current === id ? null : id));
+  }
+
   protected appConnected(config: FacebookCredentialConfig): boolean {
     return this.connectedAccounts().some((account) => account.appCredentialId === config.id);
   }
@@ -526,6 +552,7 @@ export class InstagramIntegrations implements OnInit {
   }
 
   protected updateAccount(account: SocialIntegration): void {
+    this.openProfileMenuId.set(null);
     const config = this.configForAccount(account);
     if (!config) {
       this.notifications.error('No Instagram app is available to update this account.');
@@ -534,11 +561,22 @@ export class InstagramIntegrations implements OnInit {
     void this.startInstagramLogin(config);
   }
 
-  protected async deleteAccount(account: SocialIntegration): Promise<void> {
+  protected reconnectAccount(account: SocialIntegration): void {
+    this.openProfileMenuId.set(null);
+    const config = this.configForAccount(account);
+    if (!config) {
+      this.notifications.error('No Instagram app is available to reconnect this account.');
+      return;
+    }
+    void this.startInstagramLogin(config);
+  }
+
+  protected async removeAccount(account: SocialIntegration): Promise<void> {
+    this.openProfileMenuId.set(null);
     const ok = await this.confirm.ask(
-      `Delete ${account.displayName || account.externalAccountId}? Scheduled draft posts will remain, but this Instagram profile will no longer be available for publishing.`,
-      'Delete Instagram account',
-      'Delete',
+      `Remove ${account.displayName || account.externalAccountId}? Scheduled draft posts will remain, but this Instagram profile will no longer be available for publishing.`,
+      'Remove Instagram account',
+      'Remove',
     );
     if (!ok) {
       return;
@@ -546,12 +584,12 @@ export class InstagramIntegrations implements OnInit {
     this.busy.set(true);
     this.service.disconnect(account.id).subscribe({
       next: () => {
-        this.notifications.success('Instagram account deleted');
+        this.notifications.success('Instagram account removed');
         this.busy.set(false);
         this.load(false);
       },
       error: (err) => {
-        this.notifications.error(this.errorMessage(err, 'Could not delete Instagram account'));
+        this.notifications.error(this.errorMessage(err, 'Could not remove Instagram account'));
         this.busy.set(false);
       },
     });
