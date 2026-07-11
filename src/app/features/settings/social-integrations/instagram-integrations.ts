@@ -1,9 +1,10 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, OnInit, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { ConfirmService } from '../../../core/services/confirm.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { PageHeader } from '../../../shared/components/page-header/page-header';
 import {
@@ -22,178 +23,344 @@ interface InstagramOAuthMessage {
 
 @Component({
   selector: 'app-instagram-integrations',
-  imports: [DatePipe, FormsModule, RouterLink, PageHeader],
+  imports: [DatePipe, ReactiveFormsModule, RouterLink, PageHeader],
   template: `
-    <div class="space-y-5">
+    <div class="space-y-6">
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <app-page-header
           title="Instagram Connection"
-          subtitle="Connect an Instagram professional account with Instagram Login"
+          subtitle="Manage your Instagram app credentials before connecting profiles"
         />
         <div class="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
-            class="w-full rounded-lg border border-rose-200 bg-white px-4 py-2 text-center text-sm font-semibold text-rose-700 hover:bg-rose-50 sm:w-auto"
+            class="inline-flex w-full items-center justify-center rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 sm:w-auto"
             (click)="openSetupGuide()"
           >
             How to connect
           </button>
           <a
-            routerLink="../"
-            class="w-full rounded-lg border border-slate-200 bg-white px-4 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
+            routerLink="/settings/social-integrations"
+            class="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
           >
-            Back to Integrations
+            Back
           </a>
         </div>
       </div>
 
-      <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 class="text-lg font-semibold text-slate-900">Connect Instagram</h2>
-            <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
-              Add the app from Meta's <span class="font-semibold">API setup with Instagram login</span>.
-              The connect button opens Instagram Login directly and saves the approved Instagram profile.
-            </p>
+      @if (!showForm()) {
+        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="max-w-2xl">
+              <p class="text-xs font-semibold uppercase text-rose-600">Instagram apps</p>
+              <h2 class="mt-1 text-xl font-semibold text-slate-950">Connect your Instagram app</h2>
+              <p class="mt-2 text-sm leading-6 text-slate-500">
+                Add the Instagram App ID and App Secret from Meta's API setup with Instagram login.
+                Secrets are encrypted and scoped to the logged-in user.
+              </p>
+            </div>
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                class="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                (click)="openCreateForm()"
+              >
+                Add Instagram app
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60"
+                [disabled]="busy() || !configs().length"
+                (click)="connectPrimaryApp()"
+              >
+                {{ busy() ? 'Opening...' : 'Connect Instagram' }}
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            (click)="showAppForm.update((value) => !value)"
-          >
-            {{ showAppForm() ? 'Cancel' : 'Add Instagram app' }}
-          </button>
-        </div>
+        </section>
+      }
 
-        @if (showAppForm()) {
-          <div class="mt-5 rounded-lg border border-rose-100 bg-rose-50 p-4">
-            <div class="grid gap-3 lg:grid-cols-4">
-              <label>
-                <span class="text-xs font-medium text-slate-600">App Name</span>
-                <input
-                  [(ngModel)]="form.label"
-                  class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-rose-500"
-                  placeholder="Instagram app"
-                />
-              </label>
-              <label>
-                <span class="text-xs font-medium text-slate-600">Instagram App ID</span>
-                <input
-                  [(ngModel)]="form.appId"
-                  class="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-rose-500"
-                  [class.border-red-300]="submitted() && !form.appId.trim()"
-                  [class.border-slate-300]="!(submitted() && !form.appId.trim())"
-                />
-              </label>
-              <label>
-                <span class="text-xs font-medium text-slate-600">Instagram App Secret</span>
+      @if (showForm()) {
+        <section class="mx-auto max-w-[520px] rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60">
+          <div class="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <p class="text-xs font-semibold uppercase text-rose-600">New app</p>
+              <h2 class="mt-1 text-lg font-semibold text-slate-950">Connect Instagram</h2>
+            </div>
+            <button
+              type="button"
+              class="rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-slate-100"
+              (click)="closeForm()"
+            >
+              Close
+            </button>
+          </div>
+
+          <form class="space-y-4" [formGroup]="form" (ngSubmit)="saveApp()">
+            <label class="block">
+              <span class="text-sm font-medium text-slate-700">App Name</span>
+              <input
+                type="text"
+                formControlName="label"
+                placeholder="Instagram app"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-rose-500"
+              />
+              @if (invalid('label')) {
+                <p class="mt-1 text-xs text-red-600">App Name is required.</p>
+              }
+            </label>
+
+            <label class="block">
+              <span class="text-sm font-medium text-slate-700">Instagram App ID</span>
+              <input
+                type="text"
+                formControlName="appId"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-rose-500"
+              />
+              @if (invalid('appId')) {
+                <p class="mt-1 text-xs text-red-600">Instagram App ID is required.</p>
+              }
+            </label>
+
+            <label class="block">
+              <span class="text-sm font-medium text-slate-700">Instagram App Secret</span>
+              <div class="mt-1 flex rounded-xl border border-slate-300 focus-within:border-rose-500">
                 <input
                   [type]="secretVisible() ? 'text' : 'password'"
-                  [(ngModel)]="form.appSecret"
-                  class="mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focus:border-rose-500"
-                  [class.border-red-300]="submitted() && !form.appSecret.trim()"
-                  [class.border-slate-300]="!(submitted() && !form.appSecret.trim())"
+                  formControlName="appSecret"
+                  class="min-w-0 flex-1 rounded-l-xl border-0 px-3 py-2.5 text-sm outline-none"
                 />
-              </label>
-              <label>
-                <span class="text-xs font-medium text-slate-600">OAuth Redirect URI</span>
-                <input
-                  [(ngModel)]="form.redirectUri"
-                  class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-rose-500"
-                  [placeholder]="defaultRedirectUri()"
-                />
-              </label>
-            </div>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="rounded-lg bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
-                [disabled]="savingApp()"
-                (click)="saveInstagramApp()"
-              >
-                {{ savingApp() ? 'Saving...' : 'Save Instagram app' }}
-              </button>
-              <button
-                type="button"
-                class="rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-700 hover:bg-rose-50"
-                (click)="secretVisible.update((value) => !value)"
-              >
-                {{ secretVisible() ? 'Hide secret' : 'Show secret' }}
-              </button>
-            </div>
-            <p class="mt-3 text-xs leading-5 text-rose-900">
-              Use the Instagram App ID from API setup with Instagram login, not the Instagram account ID.
-              Add this redirect URI in Meta: {{ form.redirectUri || defaultRedirectUri() }}
-            </p>
+                <button
+                  type="button"
+                  class="rounded-r-xl px-3 text-sm font-medium text-slate-500 hover:bg-slate-50"
+                  (click)="secretVisible.update((value) => !value)"
+                  [attr.aria-label]="secretVisible() ? 'Hide Instagram App Secret' : 'Show Instagram App Secret'"
+                >
+                  {{ secretVisible() ? 'Hide' : 'Show' }}
+                </button>
+              </div>
+              <p class="mt-1 text-xs text-slate-400">We encrypt this secret before storing it.</p>
+              @if (invalid('appSecret')) {
+                <p class="mt-1 text-xs text-red-600">Instagram App Secret is required.</p>
+              }
+            </label>
+
+            <label class="block">
+              <span class="text-sm font-medium text-slate-700">OAuth Redirect URI</span>
+              <input
+                type="text"
+                formControlName="redirectUri"
+                class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-rose-500"
+              />
+              <p class="mt-1 text-xs text-slate-400">
+                Add this exact URI in Meta's Instagram Login settings.
+              </p>
+              @if (invalid('redirectUri')) {
+                <p class="mt-1 text-xs text-red-600">Redirect URI is required.</p>
+              }
+            </label>
+
+            <button
+              type="submit"
+              [disabled]="saving()"
+              class="w-full rounded-xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60"
+            >
+              {{ saving() ? 'Saving...' : 'Save Instagram App' }}
+            </button>
+          </form>
+        </section>
+      }
+
+      <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-slate-950">Added apps</h2>
+            <p class="mt-1 text-sm text-slate-500">{{ tableSummary() }}</p>
           </div>
-        }
+        </div>
 
         @if (loading()) {
-          <p class="mt-5 text-sm text-slate-500">Loading Instagram apps...</p>
+          <div class="divide-y divide-slate-100">
+            @for (row of skeletonRows; track row) {
+              <div class="grid gap-3 px-5 py-4 md:grid-cols-[1.2fr_1fr_140px_150px_120px] md:items-center">
+                <div class="h-4 rounded bg-slate-100"></div>
+                <div class="h-4 rounded bg-slate-100"></div>
+                <div class="h-7 rounded-full bg-slate-100"></div>
+                <div class="h-4 rounded bg-slate-100"></div>
+                <div class="h-8 rounded bg-slate-100"></div>
+              </div>
+            }
+          </div>
         } @else if (!configs().length) {
-          <div class="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-            Add an Instagram app before connecting an Instagram account.
+          <div class="px-5 py-14 text-center">
+            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-lg font-bold text-rose-600">
+              ig
+            </div>
+            <h3 class="mt-4 text-base font-semibold text-slate-950">Connect your first Instagram app</h3>
+            <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
+              Add an Instagram App ID and App Secret to start connecting Instagram profiles.
+            </p>
+            <button
+              type="button"
+              class="mt-5 rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-700"
+              (click)="openCreateForm()"
+            >
+              Connect Instagram
+            </button>
           </div>
         } @else {
-          <div class="mt-5 grid gap-3 md:grid-cols-2">
-            @for (config of configs(); track config.id) {
-              <article class="rounded-lg border border-slate-200 p-4">
-                <div class="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 class="font-semibold text-slate-900">{{ config.label || 'Instagram app' }}</h3>
-                    <p class="mt-1 text-sm text-slate-500">{{ config.appId }}</p>
-                    @if (config.redirectUri) {
-                      <p class="mt-1 truncate text-xs text-slate-400">{{ config.redirectUri }}</p>
-                    }
-                  </div>
-                  <button
-                    type="button"
-                    class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-                    [disabled]="busy()"
-                    (click)="startInstagramLogin(config)"
-                  >
-                    {{ busyConfigId() === config.id ? 'Opening...' : 'Connect account' }}
-                  </button>
-                </div>
-              </article>
-            }
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[760px] text-left">
+              <thead class="text-xs uppercase text-slate-400">
+                <tr>
+                  <th class="px-5 py-3 font-semibold">App Name</th>
+                  <th class="px-5 py-3 font-semibold">App ID</th>
+                  <th class="px-5 py-3 font-semibold">Status</th>
+                  <th class="px-5 py-3 font-semibold">Date Added</th>
+                  <th class="px-5 py-3 text-right font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (config of pagedConfigs(); track config.id) {
+                  <tr class="border-b border-slate-100 transition hover:bg-slate-50/80">
+                    <td class="px-5 py-4">
+                      <p class="font-medium text-slate-900">{{ config.label || 'Instagram App' }}</p>
+                    </td>
+                    <td class="px-5 py-4 text-sm text-slate-600">{{ config.appId }}</td>
+                    <td class="px-5 py-4">
+                      <span
+                        class="rounded-full px-2.5 py-1 text-xs font-semibold"
+                        [class.bg-emerald-50]="appConnected(config)"
+                        [class.text-emerald-700]="appConnected(config)"
+                        [class.bg-slate-100]="!appConnected(config)"
+                        [class.text-slate-600]="!appConnected(config)"
+                      >
+                        {{ appConnected(config) ? 'Connected' : 'Not Connected' }}
+                      </span>
+                    </td>
+                    <td class="px-5 py-4 text-sm text-slate-500">
+                      {{ config.createdAt ? (config.createdAt | date: 'MMM d, y') : 'N/A' }}
+                    </td>
+                    <td class="px-5 py-4 text-right">
+                      <button
+                        type="button"
+                        class="rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                        [disabled]="busy()"
+                        (click)="startInstagramLogin(config)"
+                      >
+                        {{ busyConfigId() === config.id ? 'Opening...' : 'Connect Instagram' }}
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="flex flex-col gap-3 px-5 py-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <p>{{ pageRange() }}</p>
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                [disabled]="pageIndex() === 0"
+                (click)="goToPage(pageIndex() - 1)"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-40"
+                [disabled]="pageIndex() >= totalPages() - 1"
+                (click)="goToPage(pageIndex() + 1)"
+              >
+                ›
+              </button>
+            </div>
           </div>
         }
       </section>
 
-      <section class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-lg font-semibold text-slate-900">Connected Instagram Accounts</h2>
-        @if (connectedAccounts().length) {
-          <div class="mt-4 grid gap-3 md:grid-cols-2">
-            @for (account of connectedAccounts(); track account.id) {
-              <article class="rounded-lg border border-slate-200 p-4">
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <h3 class="truncate font-semibold text-slate-900">
-                      {{ account.displayName || account.externalAccountId }}
-                    </h3>
-                    <p class="mt-1 truncate text-sm text-slate-500">{{ account.externalAccountId }}</p>
-                    <p class="mt-2 text-xs text-slate-400">
-                      Connected {{ account.createdAt | date: 'medium' }}
-                    </p>
-                  </div>
-                  <span class="rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">
-                    {{ account.status }}
-                  </span>
-                </div>
-              </article>
-            }
+      <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 class="text-base font-semibold text-slate-950">Connected Instagram profiles</h2>
+            <p class="mt-1 text-sm text-slate-500">{{ profileSummary() }}</p>
+          </div>
+        </div>
+
+        @if (!connectedAccounts().length) {
+          <div class="px-5 py-10 text-center">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-500">
+              ig
+            </div>
+            <h3 class="mt-4 text-base font-semibold text-slate-950">No Instagram profile connected</h3>
+            <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
+              Save an Instagram app, then use Connect Instagram to authorize your profile.
+            </p>
           </div>
         } @else {
-          <p class="mt-3 text-sm text-slate-500">No Instagram account connected yet.</p>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[760px] text-left">
+              <thead class="text-xs uppercase text-slate-400">
+                <tr>
+                  <th class="px-5 py-3 font-semibold">Profile</th>
+                  <th class="px-5 py-3 font-semibold">Instagram ID</th>
+                  <th class="px-5 py-3 font-semibold">Status</th>
+                  <th class="px-5 py-3 font-semibold">Connected</th>
+                  <th class="px-5 py-3 text-right font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (account of connectedAccounts(); track account.id) {
+                  <tr class="border-b border-slate-100 transition hover:bg-slate-50/80">
+                    <td class="px-5 py-4">
+                      <p class="font-medium text-slate-900">
+                        {{ account.displayName || 'Instagram profile' }}
+                      </p>
+                    </td>
+                    <td class="px-5 py-4 text-sm text-slate-600">{{ account.externalAccountId }}</td>
+                    <td class="px-5 py-4">
+                      <span
+                        class="rounded-full px-2.5 py-1 text-xs font-semibold"
+                        [class.bg-emerald-50]="account.status === 'CONNECTED'"
+                        [class.text-emerald-700]="account.status === 'CONNECTED'"
+                        [class.bg-amber-50]="account.status === 'REAUTH_REQUIRED'"
+                        [class.text-amber-700]="account.status === 'REAUTH_REQUIRED'"
+                        [class.bg-slate-100]="account.status !== 'CONNECTED' && account.status !== 'REAUTH_REQUIRED'"
+                        [class.text-slate-600]="account.status !== 'CONNECTED' && account.status !== 'REAUTH_REQUIRED'"
+                      >
+                        {{ account.status === 'CONNECTED' ? 'Connected' : account.status }}
+                      </span>
+                    </td>
+                    <td class="px-5 py-4 text-sm text-slate-500">
+                      {{ account.createdAt | date: 'MMM d, y' }}
+                    </td>
+                    <td class="px-5 py-4 text-right">
+                      <button
+                        type="button"
+                        class="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                        [disabled]="busy()"
+                        (click)="disconnectAccount(account)"
+                      >
+                        Disconnect Instagram
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
         }
       </section>
     </div>
   `,
 })
 export class InstagramIntegrations implements OnInit {
+  private readonly fb = inject(FormBuilder);
   private readonly service = inject(SocialIntegrationsService);
   private readonly notifications = inject(NotificationService);
+  private readonly confirm = inject(ConfirmService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -201,25 +368,123 @@ export class InstagramIntegrations implements OnInit {
   protected readonly connectedAccounts = signal<SocialIntegration[]>([]);
   protected readonly loading = signal(true);
   protected readonly busy = signal(false);
-  protected readonly savingApp = signal(false);
-  protected readonly showAppForm = signal(false);
-  protected readonly submitted = signal(false);
+  protected readonly saving = signal(false);
+  protected readonly showForm = signal(false);
   protected readonly secretVisible = signal(false);
   protected readonly busyConfigId = signal<number | null>(null);
-  protected form = {
-    label: 'Instagram app',
-    appId: '',
-    appSecret: '',
-    redirectUri: '',
-  };
+  protected readonly pageIndex = signal(0);
+  protected readonly pageSize = 10;
+  protected readonly skeletonRows = Array.from({ length: 5 }, (_, index) => index);
+
+  protected readonly form = this.fb.nonNullable.group({
+    label: ['Instagram app', Validators.required],
+    appId: ['', Validators.required],
+    appSecret: ['', Validators.required],
+    redirectUri: [this.defaultRedirectUri(), Validators.required],
+  });
+
+  protected readonly pagedConfigs = computed(() => {
+    const start = this.pageIndex() * this.pageSize;
+    return this.configs().slice(start, start + this.pageSize);
+  });
+  protected readonly totalPages = computed(() => Math.max(Math.ceil(this.configs().length / this.pageSize), 1));
+  protected readonly tableSummary = computed(() => {
+    const total = this.configs().length;
+    return total ? `${total} Instagram app${total === 1 ? '' : 's'} added` : 'No Instagram apps added yet';
+  });
+  protected readonly profileSummary = computed(() => {
+    const total = this.connectedAccounts().length;
+    return total
+      ? `${total} Instagram profile${total === 1 ? '' : 's'} connected`
+      : 'No Instagram profile connected';
+  });
+  protected readonly pageRange = computed(() => {
+    const total = this.configs().length;
+    if (!total) {
+      return '0 apps';
+    }
+    const start = this.pageIndex() * this.pageSize + 1;
+    const end = Math.min(start + this.pagedConfigs().length - 1, total);
+    return `${start}-${end} of ${total}`;
+  });
 
   ngOnInit(): void {
-    if (!this.form.redirectUri) {
-      this.form.redirectUri = this.defaultRedirectUri();
-    }
+    this.form.patchValue({ redirectUri: this.defaultRedirectUri() });
     if (!this.handleOAuthReturn()) {
       this.load();
     }
+  }
+
+  protected openCreateForm(): void {
+    this.form.reset({
+      label: 'Instagram app',
+      appId: '',
+      appSecret: '',
+      redirectUri: this.defaultRedirectUri(),
+    });
+    this.secretVisible.set(false);
+    this.showForm.set(true);
+  }
+
+  protected closeForm(): void {
+    this.showForm.set(false);
+    this.form.reset({
+      label: 'Instagram app',
+      appId: '',
+      appSecret: '',
+      redirectUri: this.defaultRedirectUri(),
+    });
+  }
+
+  protected saveApp(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    const raw = this.form.getRawValue();
+    this.saving.set(true);
+    this.service
+      .createInstagramCredentialConfig({
+        label: raw.label.trim() || 'Instagram app',
+        appId: raw.appId.trim(),
+        appSecret: raw.appSecret.trim(),
+        redirectUri: raw.redirectUri.trim() || this.defaultRedirectUri(),
+        scopes: INSTAGRAM_APP_SCOPES,
+      })
+      .subscribe({
+        next: () => {
+          this.notifications.success('Instagram app saved');
+          this.saving.set(false);
+          this.closeForm();
+          this.load();
+        },
+        error: (err) => {
+          this.notifications.error(this.errorMessage(err, 'Could not save Instagram app'));
+          this.saving.set(false);
+        },
+      });
+  }
+
+  protected invalid(key: string): boolean {
+    const control = this.form.get(key);
+    return !!control && control.invalid && control.touched;
+  }
+
+  protected goToPage(page: number): void {
+    this.pageIndex.set(Math.max(0, Math.min(page, this.totalPages() - 1)));
+  }
+
+  protected appConnected(config: FacebookCredentialConfig): boolean {
+    return this.connectedAccounts().some((account) => account.appCredentialId === config.id);
+  }
+
+  protected connectPrimaryApp(): void {
+    const config = this.configs()[0];
+    if (!config) {
+      this.openCreateForm();
+      return;
+    }
+    void this.startInstagramLogin(config);
   }
 
   protected async startInstagramLogin(config: FacebookCredentialConfig): Promise<void> {
@@ -250,40 +515,27 @@ export class InstagramIntegrations implements OnInit {
     }
   }
 
-  protected saveInstagramApp(): void {
-    this.submitted.set(true);
-    if (!this.form.appId.trim() || !this.form.appSecret.trim()) {
+  protected async disconnectAccount(account: SocialIntegration): Promise<void> {
+    const ok = await this.confirm.ask(
+      `Disconnect ${account.displayName || account.externalAccountId}? Scheduled draft posts will remain, but this Instagram profile will no longer be available for publishing.`,
+      'Disconnect Instagram',
+      'Disconnect',
+    );
+    if (!ok) {
       return;
     }
-    this.savingApp.set(true);
-    this.service
-      .createInstagramCredentialConfig({
-        label: this.form.label.trim() || 'Instagram app',
-        appId: this.form.appId.trim(),
-        appSecret: this.form.appSecret.trim(),
-        redirectUri: this.form.redirectUri.trim() || this.defaultRedirectUri(),
-        scopes: INSTAGRAM_APP_SCOPES,
-      })
-      .subscribe({
-        next: () => {
-          this.notifications.success('Instagram app saved');
-          this.form = {
-            label: 'Instagram app',
-            appId: '',
-            appSecret: '',
-            redirectUri: this.defaultRedirectUri(),
-          };
-          this.submitted.set(false);
-          this.showAppForm.set(false);
-          this.secretVisible.set(false);
-          this.savingApp.set(false);
-          this.load();
-        },
-        error: (err) => {
-          this.notifications.error(this.errorMessage(err, 'Could not save Instagram app'));
-          this.savingApp.set(false);
-        },
-      });
+    this.busy.set(true);
+    this.service.disconnect(account.id).subscribe({
+      next: () => {
+        this.notifications.success('Instagram account disconnected');
+        this.busy.set(false);
+        this.load(false);
+      },
+      error: (err) => {
+        this.notifications.error(this.errorMessage(err, 'Could not disconnect Instagram'));
+        this.busy.set(false);
+      },
+    });
   }
 
   protected defaultRedirectUri(): string {
@@ -351,11 +603,14 @@ export class InstagramIntegrations implements OnInit {
         this.connectedAccounts.set(
           integrations.filter((integration) => integration.platform === 'INSTAGRAM'),
         );
-        this.showAppForm.set(!configs.length);
+        this.pageIndex.set(Math.min(this.pageIndex(), this.totalPages() - 1));
+        this.showForm.set(!configs.length);
         this.loading.set(false);
       })
       .catch((err) => {
         this.notifications.error(this.errorMessage(err, 'Could not load Instagram integrations'));
+        this.configs.set([]);
+        this.connectedAccounts.set([]);
         this.loading.set(false);
       });
   }
