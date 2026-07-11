@@ -24,6 +24,7 @@ type IntegrationKey =
   | 'GEMINI';
 type IntegrationAction = 'facebook' | 'instagram' | 'google-drive' | 'planned';
 const GOOGLE_DRIVE_GUIDE_URL = '/google_drive_oauth_2026_ui_guide.html';
+const INSTAGRAM_GUIDE_URL = '/instagram_app_setup_instruction_simple.html';
 
 interface IntegrationDefinition {
   key: IntegrationKey;
@@ -486,6 +487,13 @@ export class IntegrationsList implements OnInit {
       const guideWindow = window.open(GOOGLE_DRIVE_GUIDE_URL, '_blank', 'noopener,noreferrer');
       if (!guideWindow) {
         this.notifications.error('Allow popups for this site to open the Google Drive guide.');
+      }
+      return;
+    }
+    if (card.key === 'INSTAGRAM') {
+      const guideWindow = window.open(INSTAGRAM_GUIDE_URL, '_blank', 'noopener,noreferrer');
+      if (!guideWindow) {
+        this.notifications.error('Allow popups for this site to open the Instagram guide.');
       }
       return;
     }
