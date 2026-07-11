@@ -30,6 +30,25 @@ export interface FacebookExchangeResult {
   userTokenExpiresAt?: string | null;
 }
 
+export interface InstagramAccountOption {
+  id: string;
+  name: string;
+  pageId?: string | null;
+  pageName?: string | null;
+}
+
+export interface InstagramExchangeResult {
+  exchangeId: string;
+  accounts: InstagramAccountOption[];
+  userTokenExpiresAt?: string | null;
+}
+
+export interface InstagramAuthorizationUrl {
+  authorizationUrl: string;
+  state: string;
+  expiresAt: string;
+}
+
 /** A stored Facebook app config owned by the current user. Secret is masked only. */
 export interface FacebookCredentialConfig {
   id: number;

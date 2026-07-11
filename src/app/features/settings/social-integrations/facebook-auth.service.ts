@@ -33,12 +33,22 @@ export class FacebookAuthService {
   private initializedAppId?: string;
   private readonly scope =
     'pages_show_list,pages_read_engagement,pages_manage_posts,pages_read_user_content';
+  private readonly instagramScope =
+    'pages_show_list,pages_read_engagement,pages_manage_posts,pages_read_user_content,instagram_basic,instagram_content_publish';
 
   /**
    * Opens the Facebook login popup for the given (per-user) App ID; resolves with
    * a short-lived user access token.
    */
   async login(appId: string): Promise<string> {
+    return this.loginWithScope(appId, this.scope);
+  }
+
+  async loginForInstagram(appId: string): Promise<string> {
+    return this.loginWithScope(appId, this.instagramScope);
+  }
+
+  private async loginWithScope(appId: string, scope: string): Promise<string> {
     if (!appId) {
       throw new Error('No Facebook App ID for your account — save your app credentials first.');
     }
@@ -54,7 +64,7 @@ export class FacebookAuthService {
             reject(new Error('Facebook login was cancelled or not authorized.'));
           }
         },
-        { scope: this.scope, return_scopes: true },
+        { scope, return_scopes: true },
       );
     });
   }

@@ -18,6 +18,8 @@ import {
   GoogleDriveFile,
   GoogleDriveFiles,
   GoogleDriveTestResult,
+  InstagramAuthorizationUrl,
+  InstagramExchangeResult,
   SocialIntegration,
 } from '../../../shared/models/social-integration.model';
 import { ProviderInfo } from '../../../shared/models/social-platform.model';
@@ -116,6 +118,54 @@ export class SocialIntegrationsService {
       exchangeId,
       pageIds,
     });
+  }
+
+  instagramExchange(shortLivedToken: string, configId?: number): Observable<InstagramExchangeResult> {
+    return this.api.post<InstagramExchangeResult>(ApiEndpoint.INSTAGRAM_OAUTH_EXCHANGE, {
+      shortLivedToken,
+      configId,
+    });
+  }
+
+  instagramAuthorizationUrl(
+    redirectUri: string,
+    configId?: number,
+  ): Observable<InstagramAuthorizationUrl> {
+    return this.api.post<InstagramAuthorizationUrl>(ApiEndpoint.INSTAGRAM_AUTHORIZATION_URL, {
+      redirectUri,
+      configId,
+    });
+  }
+
+  instagramOAuthCallback(code: string, state: string): Observable<SocialIntegration> {
+    return this.api.post<SocialIntegration>(ApiEndpoint.INSTAGRAM_OAUTH_CALLBACK, {
+      code,
+      state,
+    });
+  }
+
+  instagramConnect(exchangeId: string, accountId: string): Observable<SocialIntegration> {
+    return this.api.post<SocialIntegration>(ApiEndpoint.INSTAGRAM_OAUTH_CONNECT, {
+      exchangeId,
+      accountId,
+    });
+  }
+
+  instagramConnectAccounts(exchangeId: string, accountIds: string[]): Observable<SocialIntegration[]> {
+    return this.api.post<SocialIntegration[]>(ApiEndpoint.INSTAGRAM_OAUTH_CONNECT_ACCOUNTS, {
+      exchangeId,
+      accountIds,
+    });
+  }
+
+  instagramCredentialConfigs(): Observable<FacebookCredentialConfig[]> {
+    return this.api.get<FacebookCredentialConfig[]>(ApiEndpoint.INSTAGRAM_CREDENTIAL_CONFIGS);
+  }
+
+  createInstagramCredentialConfig(
+    body: FacebookCredentialConfigRequest,
+  ): Observable<FacebookCredentialConfig> {
+    return this.api.post<FacebookCredentialConfig>(ApiEndpoint.INSTAGRAM_CREDENTIAL_CONFIGS, body);
   }
 
   /** Replace an existing integration's token in place using a fresh exchange. */

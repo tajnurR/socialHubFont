@@ -24,6 +24,11 @@ export const SETTINGS_ROUTES: Routes = [
       ),
   },
   {
+    path: 'social-integrations/instagram',
+    loadComponent: () =>
+      import('./social-integrations/instagram-integrations').then((m) => m.InstagramIntegrations),
+  },
+  {
     path: 'social-integrations/:id/posts/new',
     loadComponent: () => import('./social-integrations/new-post').then((m) => m.NewPost),
   },

@@ -22,7 +22,7 @@ type IntegrationKey =
   | 'CHATGPT'
   | 'CLAUDE'
   | 'GEMINI';
-type IntegrationAction = 'facebook' | 'google-drive' | 'planned';
+type IntegrationAction = 'facebook' | 'instagram' | 'google-drive' | 'planned';
 const GOOGLE_DRIVE_GUIDE_URL = '/google_drive_oauth_2026_ui_guide.html';
 
 interface IntegrationDefinition {
@@ -162,6 +162,23 @@ interface IntegrationCard extends IntegrationDefinition {
                         Remove
                       </button>
                     }
+                  } @else if (card.action === 'instagram') {
+                    <a
+                      routerLink="instagram"
+                      class="rounded-md bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+                    >
+                      {{ card.connected ? 'Connect another' : 'Connect' }}
+                    </a>
+                    @if (card.connected) {
+                      <button
+                        type="button"
+                        class="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        [disabled]="busyKey() === card.key"
+                        (click)="removePlatform('INSTAGRAM')"
+                      >
+                        Remove
+                      </button>
+                    }
                   } @else if (card.action === 'google-drive') {
                     <a
                       routerLink="storage-drive"
@@ -287,12 +304,12 @@ export class IntegrationsList implements OnInit {
       name: 'Instagram',
       icon: 'IG',
       tone: 'bg-rose-600',
-      action: 'planned',
-      description: 'Use Instagram accounts for visual campaigns once the provider is enabled.',
+      action: 'instagram',
+      description: 'Connect Instagram professional accounts for media publishing and scheduling.',
       instructions: [
-        'Connect a Meta app that has Instagram permissions.',
-        'Link the Instagram business account to a Facebook Page.',
-        'Return here when Instagram provider support is enabled.',
+        'Use a saved Meta app that has Instagram Basic and Content Publishing permissions.',
+        'Approve Meta Login for a Facebook Page linked to an Instagram Business or Creator account.',
+        'Select one or more returned Instagram accounts to connect.',
       ],
     },
     {
