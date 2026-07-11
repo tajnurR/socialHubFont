@@ -336,15 +336,25 @@ interface InstagramOAuthMessage {
                     <td class="px-5 py-4 text-sm text-slate-500">
                       {{ account.createdAt | date: 'MMM d, y' }}
                     </td>
-                    <td class="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        class="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
-                        [disabled]="busy()"
-                        (click)="disconnectAccount(account)"
-                      >
-                        Disconnect Instagram
-                      </button>
+                    <td class="px-5 py-4">
+                      <div class="flex flex-col justify-end gap-2 sm:flex-row">
+                        <button
+                          type="button"
+                          class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                          [disabled]="busy()"
+                          (click)="updateAccount(account)"
+                        >
+                          Update account
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-60"
+                          [disabled]="busy()"
+                          (click)="deleteAccount(account)"
+                        >
+                          Delete account
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 }
@@ -515,11 +525,20 @@ export class InstagramIntegrations implements OnInit {
     }
   }
 
-  protected async disconnectAccount(account: SocialIntegration): Promise<void> {
+  protected updateAccount(account: SocialIntegration): void {
+    const config = this.configForAccount(account);
+    if (!config) {
+      this.notifications.error('No Instagram app is available to update this account.');
+      return;
+    }
+    void this.startInstagramLogin(config);
+  }
+
+  protected async deleteAccount(account: SocialIntegration): Promise<void> {
     const ok = await this.confirm.ask(
-      `Disconnect ${account.displayName || account.externalAccountId}? Scheduled draft posts will remain, but this Instagram profile will no longer be available for publishing.`,
-      'Disconnect Instagram',
-      'Disconnect',
+      `Delete ${account.displayName || account.externalAccountId}? Scheduled draft posts will remain, but this Instagram profile will no longer be available for publishing.`,
+      'Delete Instagram account',
+      'Delete',
     );
     if (!ok) {
       return;
@@ -527,15 +546,22 @@ export class InstagramIntegrations implements OnInit {
     this.busy.set(true);
     this.service.disconnect(account.id).subscribe({
       next: () => {
-        this.notifications.success('Instagram account disconnected');
+        this.notifications.success('Instagram account deleted');
         this.busy.set(false);
         this.load(false);
       },
       error: (err) => {
-        this.notifications.error(this.errorMessage(err, 'Could not disconnect Instagram'));
+        this.notifications.error(this.errorMessage(err, 'Could not delete Instagram account'));
         this.busy.set(false);
       },
     });
+  }
+
+  private configForAccount(account: SocialIntegration): FacebookCredentialConfig | null {
+    if (account.appCredentialId) {
+      return this.configs().find((config) => config.id === account.appCredentialId) ?? null;
+    }
+    return this.configs()[0] ?? null;
   }
 
   protected defaultRedirectUri(): string {
