@@ -162,11 +162,6 @@ interface SaveWorkflowState {
                 @if (submitted() && targetValidationError()) {
                   <p class="mt-3 text-xs text-red-600">{{ targetValidationError() }}</p>
                 }
-                @if (submitted() && linkedInMediaNotSupported()) {
-                  <p class="mt-3 text-xs text-red-600">
-                    LinkedIn publishing currently supports text/link posts only. Remove media from this draft or create the LinkedIn post separately.
-                  </p>
-                }
               </section>
 
               <label>
@@ -367,12 +362,6 @@ interface SaveWorkflowState {
 
                 @if (submitted() && mediaMissing()) {
                   <p class="mt-2 text-xs text-red-600">Media is required when any selected platform requires media.</p>
-                }
-
-                @if (submitted() && linkedInMediaNotSupported()) {
-                  <p class="mt-2 text-xs text-red-600">
-                    LinkedIn media upload is not enabled yet. Use this media for Facebook/Instagram drafts, then create a separate text-only LinkedIn draft.
-                  </p>
                 }
 
                 @if (mediaValidationError()) {
@@ -681,8 +670,7 @@ export class PostCreate implements OnInit, OnDestroy {
       !this.form.content.trim() ||
       !this.form.title.trim() ||
       !this.form.productId ||
-      this.mediaMissing() ||
-      this.linkedInMediaNotSupported()
+      this.mediaMissing()
     ) {
       return;
     }
@@ -975,10 +963,6 @@ export class PostCreate implements OnInit, OnDestroy {
         !this.pendingUploads().length &&
         !this.selectedLibraryMedia().length,
     );
-  }
-
-  protected linkedInMediaNotSupported(): boolean {
-    return this.selectedTargets().some((target) => target.platform === 'LINKEDIN') && this.hasSelectedMedia();
   }
 
   protected formatBytes(value: number): string {
