@@ -1,6 +1,6 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
+import { finalize, Observable, shareReplay, tap } from 'rxjs';
 import { ApiEndpoint } from '../constants/api-endpoints';
 import {
   AuthResponse,
@@ -28,6 +28,7 @@ export class AuthService {
 
   private readonly _token = signal<string | null>(localStorage.getItem(ACCESS_KEY));
   private readonly _user = signal<UserProfile | null>(null);
+  private refreshRequest$: Observable<AuthResponse> | null = null;
 
   readonly user = this._user.asReadonly();
   readonly isAuthenticated = computed(() => this._token() !== null);
@@ -55,6 +56,26 @@ export class AuthService {
 
   getRefreshToken(): string | null {
     return localStorage.getItem(REFRESH_KEY);
+  }
+
+  refreshSession(): Observable<AuthResponse> {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) {
+      this.logout();
+      throw new Error('No refresh token available.');
+    }
+    if (!this.refreshRequest$) {
+      this.refreshRequest$ = this.api
+        .post<AuthResponse>(ApiEndpoint.AUTH_REFRESH, { refreshToken })
+        .pipe(
+          tap((res) => this.storeSession(res)),
+          finalize(() => {
+            this.refreshRequest$ = null;
+          }),
+          shareReplay(1),
+        );
+    }
+    return this.refreshRequest$;
   }
 
   /** Lazily fetch the current user's profile (e.g. after a page refresh). */

@@ -8,6 +8,9 @@ import { AuthService } from '../services/auth.service';
  * login/register don't need one.)
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  if (req.url.includes('/auth/')) {
+    return next(req);
+  }
   const token = inject(AuthService).getToken();
   if (!token) {
     return next(req);

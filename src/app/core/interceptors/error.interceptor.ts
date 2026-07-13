@@ -1,6 +1,6 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, throwError } from 'rxjs';
+import { catchError, switchMap, throwError } from 'rxjs';
 import { ErrorResponse } from '../../shared/models/api-response.model';
 import { AuthService } from '../services/auth.service';
 
@@ -19,6 +19,18 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
 
       const isAuthEndpoint = req.url.includes('/auth/');
       if (error.status === 401 && !isAuthEndpoint) {
+        const refreshToken = auth.getRefreshToken();
+        if (refreshToken) {
+          return auth.refreshSession().pipe(
+            switchMap((session) =>
+              next(req.clone({ setHeaders: { Authorization: `Bearer ${session.accessToken}` } })),
+            ),
+            catchError((refreshError) => {
+              auth.logout();
+              return throwError(() => refreshError);
+            }),
+          );
+        }
         auth.logout();
       }
 
