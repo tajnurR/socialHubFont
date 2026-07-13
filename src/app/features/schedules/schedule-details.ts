@@ -250,7 +250,7 @@ import { MediaService } from '../media/media.service';
                         @if (previewUrl(post)) {
                           <img [src]="previewUrl(post) || ''" alt="" class="h-full w-full object-cover" />
                         } @else {
-                          <span class="flex h-full w-full items-center justify-center text-xs text-slate-400">No media</span>
+                          <span class="flex h-full w-full items-center justify-center text-xs text-slate-400">{{ emptyPreviewLabel(post) }}</span>
                         }
                       </button>
                       <div class="min-w-0 flex-1">
@@ -329,7 +329,7 @@ import { MediaService } from '../media/media.service';
                                 class="h-full w-full object-cover"
                               />
                             } @else {
-                              <span class="flex h-full w-full items-center justify-center text-[11px] text-slate-400">No media</span>
+                              <span class="flex h-full w-full items-center justify-center text-[11px] text-slate-400">{{ emptyPreviewLabel(post) }}</span>
                             }
                           </button>
                         </td>
@@ -860,6 +860,10 @@ export class ScheduleDetails implements OnInit, OnDestroy {
 
   protected previewUrl(post: SchedulePost): string | null {
     return (post.mediaType === 'IMAGE' && post.mediaAssetId ? this.previewUrls().get(post.id) : null) ?? post.thumbnailUrl ?? null;
+  }
+
+  protected emptyPreviewLabel(post: SchedulePost): string {
+    return post.platform === 'LINKEDIN' ? 'Text post' : 'No media';
   }
 
   protected time12(value: string): string {

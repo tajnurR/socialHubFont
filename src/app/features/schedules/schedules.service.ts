@@ -558,8 +558,10 @@ export class SchedulesService {
     const suggestions: string[] = [];
     if (this.overduePosts(schedule).length) suggestions.push('Reschedule overdue posts.');
     if (schedule.failedCount) suggestions.push('Fix failed posts and retry publishing.');
-    if (schedule.posts.some((post) => !post.hasCaption || !post.hasMedia))
-      suggestions.push('Add missing captions or media.');
+    if (schedule.posts.some((post) => !post.hasCaption))
+      suggestions.push('Add missing captions.');
+    if (schedule.posts.some((post) => platformRequiresMedia(post.platform) && !post.hasMedia))
+      suggestions.push('Add missing media for visual-platform posts.');
     if (!schedule.endDate && schedule.scheduleType !== 'one-time')
       suggestions.push('Review schedules without end dates.');
     if (schedule.pendingCount === 0 && schedule.status === 'active')
@@ -1206,13 +1208,18 @@ interface ApiScheduleTemplate {
 
 function apiToSchedule(api: ApiSchedule): Schedule {
   const posts = (api.posts ?? []).map((post) => apiToPost(post, String(api.id)));
+  const platforms = uniquePlatforms(
+    posts.map((post) => post.platform),
+    api.platforms ?? [],
+    api.targetPlatform ?? api.platforms?.[0],
+  );
   return normalize({
     id: String(api.id),
     name: api.name,
     description: api.description ?? undefined,
     color: api.color ?? '#4f46e5',
-    platforms: [api.targetPlatform ?? api.platforms?.[0] ?? 'FACEBOOK'],
-    targetPlatform: api.targetPlatform ?? api.platforms?.[0] ?? 'FACEBOOK',
+    platforms,
+    targetPlatform: api.targetPlatform ?? platforms[0] ?? 'FACEBOOK',
     socialIntegrationId: api.socialIntegrationId ?? undefined,
     targetAccountName: api.targetAccountName ?? undefined,
     status: toScheduleStatus(api.status),
@@ -1311,6 +1318,10 @@ function platformsForDraft(draft: ScheduleDraft): SchedulePlatform[] {
     return unique;
   }
   return draft.platforms.length ? draft.platforms : [draft.targetPlatform ?? 'FACEBOOK'];
+}
+
+function platformRequiresMedia(platform: SchedulePlatform): boolean {
+  return platform === 'INSTAGRAM';
 }
 
 function isPendingSchedulePost(post: SchedulePost): boolean {
