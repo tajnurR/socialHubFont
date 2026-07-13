@@ -22,7 +22,7 @@ type IntegrationKey =
   | 'CHATGPT'
   | 'CLAUDE'
   | 'GEMINI';
-type IntegrationAction = 'facebook' | 'instagram' | 'google-drive' | 'planned';
+type IntegrationAction = 'facebook' | 'instagram' | 'linkedin' | 'google-drive' | 'planned';
 const GOOGLE_DRIVE_GUIDE_URL = '/google_drive_oauth_2026_ui_guide.html';
 const INSTAGRAM_GUIDE_URL = '/instagram_app_setup_instruction_simple.html';
 
@@ -180,6 +180,23 @@ interface IntegrationCard extends IntegrationDefinition {
                         Remove
                       </button>
                     }
+                  } @else if (card.action === 'linkedin') {
+                    <a
+                      routerLink="linkedin"
+                      class="rounded-md bg-sky-700 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-800"
+                    >
+                      {{ card.connected ? 'Connect another' : 'Connect' }}
+                    </a>
+                    @if (card.connected) {
+                      <button
+                        type="button"
+                        class="rounded-md border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+                        [disabled]="busyKey() === card.key"
+                        (click)="removePlatform('LINKEDIN')"
+                      >
+                        Remove
+                      </button>
+                    }
                   } @else if (card.action === 'google-drive') {
                     <a
                       routerLink="storage-drive"
@@ -333,12 +350,12 @@ export class IntegrationsList implements OnInit {
       name: 'LinkedIn',
       icon: 'in',
       tone: 'bg-sky-700',
-      action: 'planned',
-      description: 'Connect company pages or profiles for professional content planning.',
+      action: 'linkedin',
+      description: 'Connect your personal LinkedIn profile for professional content publishing.',
       instructions: [
-        'Create a LinkedIn developer app for your organization.',
-        'Request the posting and organization permissions needed by your workflow.',
-        'Connect from this page when LinkedIn support is enabled.',
+        'Create a LinkedIn developer app and add the SocialHub redirect URL under Auth.',
+        'Enable Sign in with LinkedIn using OpenID Connect and Share on LinkedIn.',
+        'Connect with openid, profile, email, and w_member_social to publish to your profile.',
       ],
     },
     {

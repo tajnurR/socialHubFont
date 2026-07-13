@@ -20,6 +20,10 @@ import {
   GoogleDriveTestResult,
   InstagramAuthorizationUrl,
   InstagramExchangeResult,
+  LinkedInAuthorizationUrl,
+  LinkedInCredentialConfig,
+  LinkedInCredentialConfigRequest,
+  LinkedInCredentialConfigUpdateRequest,
   SocialIntegration,
 } from '../../../shared/models/social-integration.model';
 import { ProviderInfo } from '../../../shared/models/social-platform.model';
@@ -166,6 +170,48 @@ export class SocialIntegrationsService {
     body: FacebookCredentialConfigRequest,
   ): Observable<FacebookCredentialConfig> {
     return this.api.post<FacebookCredentialConfig>(ApiEndpoint.INSTAGRAM_CREDENTIAL_CONFIGS, body);
+  }
+
+  linkedinAuthorizationUrl(
+    redirectUri: string,
+    configId?: number,
+  ): Observable<LinkedInAuthorizationUrl> {
+    return this.api.post<LinkedInAuthorizationUrl>(ApiEndpoint.LINKEDIN_AUTHORIZATION_URL, {
+      redirectUri,
+      configId,
+    });
+  }
+
+  linkedinOAuthCallback(code: string, state: string): Observable<SocialIntegration> {
+    return this.api.post<SocialIntegration>(ApiEndpoint.LINKEDIN_OAUTH_CALLBACK, {
+      code,
+      state,
+    });
+  }
+
+  linkedinCredentialConfigs(): Observable<LinkedInCredentialConfig[]> {
+    return this.api.get<LinkedInCredentialConfig[]>(ApiEndpoint.LINKEDIN_CREDENTIAL_CONFIGS);
+  }
+
+  createLinkedInCredentialConfig(
+    body: LinkedInCredentialConfigRequest,
+  ): Observable<LinkedInCredentialConfig> {
+    return this.api.post<LinkedInCredentialConfig>(ApiEndpoint.LINKEDIN_CREDENTIAL_CONFIGS, body);
+  }
+
+  updateLinkedInCredentialConfig(
+    id: number,
+    body: LinkedInCredentialConfigUpdateRequest,
+  ): Observable<LinkedInCredentialConfig> {
+    return this.api.put<LinkedInCredentialConfig>(ApiEndpoint.LINKEDIN_CREDENTIAL_CONFIG_BY_ID, body, {
+      pathParams: { id },
+    });
+  }
+
+  deleteLinkedInCredentialConfig(id: number): Observable<void> {
+    return this.api.delete<void>(ApiEndpoint.LINKEDIN_CREDENTIAL_CONFIG_BY_ID, {
+      pathParams: { id },
+    });
   }
 
   /** Replace an existing integration's token in place using a fresh exchange. */

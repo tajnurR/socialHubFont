@@ -594,7 +594,7 @@ export class PostCreate implements OnInit, OnDestroy {
     {
       platform: 'LINKEDIN',
       label: 'LinkedIn',
-      accountLabel: 'Select Company Page or Profile',
+      accountLabel: 'Select LinkedIn Profile',
       contentLabel: 'Post Content',
       titleLabel: 'Post Title',
       mediaRequired: false,

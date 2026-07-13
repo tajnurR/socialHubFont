@@ -49,6 +49,43 @@ export interface InstagramAuthorizationUrl {
   expiresAt: string;
 }
 
+export interface LinkedInAuthorizationUrl {
+  authorizationUrl: string;
+  state: string;
+  expiresAt: string;
+}
+
+export interface LinkedInCredentialConfig {
+  id: number;
+  label?: string | null;
+  clientId: string;
+  clientSecretMasked: string;
+  redirectUri?: string | null;
+  scopes?: string | null;
+  apiVersion?: string | null;
+  connected?: boolean;
+  createdAt?: string | null;
+  status?: 'ACTIVE' | 'DELETED';
+}
+
+export interface LinkedInCredentialConfigRequest {
+  clientId: string;
+  clientSecret: string;
+  label?: string | null;
+  redirectUri?: string | null;
+  scopes?: string | null;
+  apiVersion?: string | null;
+}
+
+export interface LinkedInCredentialConfigUpdateRequest {
+  clientId: string;
+  clientSecret?: string | null;
+  label?: string | null;
+  redirectUri?: string | null;
+  scopes?: string | null;
+  apiVersion?: string | null;
+}
+
 /** A stored Facebook app config owned by the current user. Secret is masked only. */
 export interface FacebookCredentialConfig {
   id: number;
