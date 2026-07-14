@@ -24,6 +24,7 @@ import {
   LinkedInCredentialConfig,
   LinkedInCredentialConfigRequest,
   LinkedInCredentialConfigUpdateRequest,
+  LinkedInExchangeResult,
   SocialIntegration,
 } from '../../../shared/models/social-integration.model';
 import { ProviderInfo } from '../../../shared/models/social-platform.model';
@@ -182,10 +183,17 @@ export class SocialIntegrationsService {
     });
   }
 
-  linkedinOAuthCallback(code: string, state: string): Observable<SocialIntegration> {
-    return this.api.post<SocialIntegration>(ApiEndpoint.LINKEDIN_OAUTH_CALLBACK, {
+  linkedinOAuthCallback(code: string, state: string): Observable<LinkedInExchangeResult> {
+    return this.api.post<LinkedInExchangeResult>(ApiEndpoint.LINKEDIN_OAUTH_CALLBACK, {
       code,
       state,
+    });
+  }
+
+  linkedinConnectAccounts(exchangeId: string, accountIds: string[]): Observable<SocialIntegration[]> {
+    return this.api.post<SocialIntegration[]>(ApiEndpoint.LINKEDIN_OAUTH_CONNECT_ACCOUNTS, {
+      exchangeId,
+      accountIds,
     });
   }
 

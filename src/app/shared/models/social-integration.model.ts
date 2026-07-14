@@ -55,6 +55,18 @@ export interface LinkedInAuthorizationUrl {
   expiresAt: string;
 }
 
+export interface LinkedInAccountOption {
+  id: string;
+  name: string;
+  accountType: 'PERSONAL' | 'COMPANY' | string;
+}
+
+export interface LinkedInExchangeResult {
+  exchangeId: string;
+  accounts: LinkedInAccountOption[];
+  tokenExpiresAt?: string | null;
+}
+
 export interface LinkedInCredentialConfig {
   id: number;
   label?: string | null;

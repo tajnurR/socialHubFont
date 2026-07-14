@@ -352,11 +352,11 @@ export class IntegrationsList implements OnInit {
       icon: 'in',
       tone: 'bg-sky-700',
       action: 'linkedin',
-      description: 'Connect your personal LinkedIn profile for professional content publishing.',
+      description: 'Connect LinkedIn personal profiles and company Pages for professional publishing.',
       instructions: [
         'Create a LinkedIn developer app and add the SocialHub redirect URL under Auth.',
-        'Enable Sign in with LinkedIn using OpenID Connect and Share on LinkedIn.',
-        'Connect with openid, profile, email, and w_member_social to publish to your profile.',
+        'Enable Sign in with LinkedIn using OpenID Connect, Share on LinkedIn, and organization access for Page publishing.',
+        'Connect with openid, profile, email, w_member_social, r_organization_admin, and w_organization_social.',
       ],
     },
     {

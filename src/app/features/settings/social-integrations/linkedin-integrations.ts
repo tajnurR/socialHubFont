@@ -8,12 +8,15 @@ import { ConfirmService } from '../../../core/services/confirm.service';
 import { NotificationService } from '../../../core/services/notification.service';
 import { PageHeader } from '../../../shared/components/page-header/page-header';
 import {
+  LinkedInAccountOption,
   LinkedInCredentialConfig,
+  LinkedInExchangeResult,
   SocialIntegration,
 } from '../../../shared/models/social-integration.model';
 import { SocialIntegrationsService } from './social-integrations.service';
 
-const LINKEDIN_SCOPES = 'openid profile email w_member_social';
+const LINKEDIN_SCOPES =
+  'openid profile email w_member_social r_organization_admin w_organization_social';
 const LINKEDIN_GUIDE_URL = '/linkedin_app_setup_instruction.html';
 
 interface LinkedInOAuthMessage {
@@ -32,7 +35,7 @@ interface LinkedInOAuthMessage {
       <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <app-page-header
           title="LinkedIn Connection"
-          subtitle="Manage LinkedIn app credentials before connecting your personal profile"
+          subtitle="Manage LinkedIn app credentials before connecting personal profiles and company Pages"
         />
         <div class="flex flex-col gap-2 sm:flex-row">
           <button
@@ -59,7 +62,8 @@ interface LinkedInOAuthMessage {
               <h2 class="mt-1 text-xl font-semibold text-slate-950">Connect your LinkedIn app</h2>
               <p class="mt-2 text-sm leading-6 text-slate-500">
                 Add the Client ID and Client Secret from your LinkedIn developer app. Secrets are
-                encrypted and scoped to the logged-in user.
+                encrypted and scoped to the logged-in user. Company Pages are shown when the user
+                is an approved Page admin and the app has organization permissions.
               </p>
             </div>
             <div class="flex flex-col gap-2 sm:flex-row">
@@ -194,7 +198,7 @@ interface LinkedInOAuthMessage {
             </div>
             <h3 class="mt-4 text-base font-semibold text-slate-950">Connect your first LinkedIn app</h3>
             <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
-              Add a Client ID and Client Secret to start connecting your personal profile.
+              Add a Client ID and Client Secret to start connecting profiles and company Pages.
             </p>
             <button
               type="button"
@@ -255,7 +259,7 @@ interface LinkedInOAuthMessage {
                             (click)="startLinkedInLogin(config)"
                           >
                             <span class="text-xs">↗</span>
-                            Connect profile
+                            Connect accounts
                           </button>
                           <button
                             type="button"
@@ -286,10 +290,67 @@ interface LinkedInOAuthMessage {
         }
       </section>
 
+      @if (availableAccounts().length) {
+        <section class="rounded-2xl border border-sky-200 bg-white shadow-sm">
+          <div class="flex flex-col gap-3 border-b border-sky-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 class="text-base font-semibold text-slate-950">Select LinkedIn accounts</h2>
+              <p class="mt-1 text-sm text-slate-500">
+                Choose the personal profile and company Pages you want to connect.
+              </p>
+            </div>
+            <div class="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                (click)="cancelAccountSelection()"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-sky-700 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-800 disabled:opacity-60"
+                [disabled]="connectingAccounts() || !selectedAccountIds().size"
+                (click)="connectSelectedAccounts()"
+              >
+                {{ connectingAccounts() ? 'Connecting...' : 'Connect selected' }}
+              </button>
+            </div>
+          </div>
+          <div class="divide-y divide-slate-100">
+            @for (account of availableAccounts(); track account.id) {
+              <label class="flex cursor-pointer flex-col gap-3 px-5 py-4 hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between">
+                <div class="flex min-w-0 items-start gap-3">
+                  <input
+                    type="checkbox"
+                    class="mt-1 h-4 w-4 rounded border-slate-300 text-sky-700 focus:ring-sky-600"
+                    [checked]="isAccountSelected(account.id)"
+                    (change)="toggleAccountSelection(account.id)"
+                  />
+                  <div class="min-w-0">
+                    <p class="truncate font-medium text-slate-900">{{ account.name }}</p>
+                    <p class="mt-1 break-all text-xs text-slate-500">{{ account.id }}</p>
+                  </div>
+                </div>
+                <span
+                  class="inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold"
+                  [class.bg-sky-50]="account.accountType === 'PERSONAL'"
+                  [class.text-sky-700]="account.accountType === 'PERSONAL'"
+                  [class.bg-violet-50]="account.accountType !== 'PERSONAL'"
+                  [class.text-violet-700]="account.accountType !== 'PERSONAL'"
+                >
+                  {{ accountTypeLabel(account) }}
+                </span>
+              </label>
+            }
+          </div>
+        </section>
+      }
+
       <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="flex flex-col gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 class="text-base font-semibold text-slate-950">Connected LinkedIn profiles</h2>
+            <h2 class="text-base font-semibold text-slate-950">Connected LinkedIn accounts</h2>
             <p class="mt-1 text-sm text-slate-500">{{ profileSummary() }}</p>
           </div>
         </div>
@@ -299,9 +360,9 @@ interface LinkedInOAuthMessage {
             <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-sm font-bold text-slate-500">
               in
             </div>
-            <h3 class="mt-4 text-base font-semibold text-slate-950">No LinkedIn profile connected</h3>
+            <h3 class="mt-4 text-base font-semibold text-slate-950">No LinkedIn account connected</h3>
             <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">
-              Save a LinkedIn app, then connect your personal profile.
+              Save a LinkedIn app, then connect your personal profile or company Pages.
             </p>
           </div>
         } @else {
@@ -309,7 +370,7 @@ interface LinkedInOAuthMessage {
             <table class="w-full min-w-[760px] text-left">
               <thead class="text-xs uppercase text-slate-400">
                 <tr>
-                  <th class="px-5 py-3 font-semibold">Profile</th>
+                  <th class="px-5 py-3 font-semibold">Account</th>
                   <th class="px-5 py-3 font-semibold">LinkedIn URN</th>
                   <th class="px-5 py-3 font-semibold">Status</th>
                   <th class="px-5 py-3 font-semibold">Connected</th>
@@ -320,7 +381,7 @@ interface LinkedInOAuthMessage {
                 @for (account of connectedAccounts(); track account.id) {
                   <tr class="border-b border-slate-100 transition hover:bg-slate-50/80">
                     <td class="px-5 py-4">
-                      <p class="font-medium text-slate-900">{{ account.displayName || 'LinkedIn profile' }}</p>
+                      <p class="font-medium text-slate-900">{{ account.displayName || 'LinkedIn account' }}</p>
                     </td>
                     <td class="px-5 py-4 text-sm text-slate-600">{{ account.externalAccountId }}</td>
                     <td class="px-5 py-4">
@@ -408,6 +469,10 @@ export class LinkedInIntegrations implements OnInit {
   protected readonly editingId = signal<number | null>(null);
   protected readonly openAppMenuId = signal<number | null>(null);
   protected readonly openProfileMenuId = signal<number | null>(null);
+  protected readonly exchangeId = signal<string | null>(null);
+  protected readonly availableAccounts = signal<LinkedInAccountOption[]>([]);
+  protected readonly selectedAccountIds = signal<Set<string>>(new Set());
+  protected readonly connectingAccounts = signal(false);
 
   protected readonly form = this.fb.nonNullable.group({
     label: ['LinkedIn app', Validators.required],
@@ -423,8 +488,8 @@ export class LinkedInIntegrations implements OnInit {
   protected readonly profileSummary = computed(() => {
     const total = this.connectedAccounts().length;
     return total
-      ? `${total} LinkedIn profile${total === 1 ? '' : 's'} connected`
-      : 'No LinkedIn profile connected';
+      ? `${total} LinkedIn account${total === 1 ? '' : 's'} connected`
+      : 'No LinkedIn account connected';
   });
 
   ngOnInit(): void {
@@ -546,9 +611,11 @@ export class LinkedInIntegrations implements OnInit {
         this.service.linkedinAuthorizationUrl(this.defaultRedirectUri(), config.id),
       );
       const result = await this.waitForOAuthPopup(popup, response.authorizationUrl);
-      await firstValueFrom(this.service.linkedinOAuthCallback(result.code, result.state));
-      this.notifications.success('LinkedIn profile connected');
-      this.load(false);
+      const exchange = await firstValueFrom(this.service.linkedinOAuthCallback(result.code, result.state));
+      this.setAvailableAccounts(exchange);
+      this.notifications.success(
+        exchange.accounts.length > 1 ? 'Select LinkedIn accounts to connect' : 'LinkedIn account loaded',
+      );
     } catch (err) {
       this.notifications.error(this.errorMessage(err, 'LinkedIn login failed'));
       popup.close();
@@ -561,7 +628,7 @@ export class LinkedInIntegrations implements OnInit {
     this.openProfileMenuId.set(null);
     const config = this.configForAccount(account);
     if (!config) {
-      this.notifications.error('No LinkedIn app is available to reconnect this profile.');
+      this.notifications.error('No LinkedIn app is available to reconnect this account.');
       return;
     }
     void this.startLinkedInLogin(config);
@@ -571,11 +638,59 @@ export class LinkedInIntegrations implements OnInit {
     this.reconnectAccount(account);
   }
 
+  protected accountTypeLabel(account: LinkedInAccountOption): string {
+    return account.accountType === 'COMPANY' ? 'Company Page' : 'Personal profile';
+  }
+
+  protected isAccountSelected(id: string): boolean {
+    return this.selectedAccountIds().has(id);
+  }
+
+  protected toggleAccountSelection(id: string): void {
+    const next = new Set(this.selectedAccountIds());
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    this.selectedAccountIds.set(next);
+  }
+
+  protected connectSelectedAccounts(): void {
+    const exchangeId = this.exchangeId();
+    const accountIds = [...this.selectedAccountIds()];
+    if (!exchangeId || !accountIds.length) {
+      this.notifications.error('Select at least one LinkedIn account to connect.');
+      return;
+    }
+    this.connectingAccounts.set(true);
+    this.service.linkedinConnectAccounts(exchangeId, accountIds).subscribe({
+      next: (accounts) => {
+        this.notifications.success(
+          `${accounts.length} LinkedIn account${accounts.length === 1 ? '' : 's'} connected`,
+        );
+        this.cancelAccountSelection();
+        this.connectingAccounts.set(false);
+        this.load(false);
+      },
+      error: (err) => {
+        this.notifications.error(this.errorMessage(err, 'Could not connect LinkedIn accounts'));
+        this.connectingAccounts.set(false);
+      },
+    });
+  }
+
+  protected cancelAccountSelection(): void {
+    this.exchangeId.set(null);
+    this.availableAccounts.set([]);
+    this.selectedAccountIds.set(new Set());
+  }
+
   protected async removeAccount(account: SocialIntegration): Promise<void> {
     this.openProfileMenuId.set(null);
     const ok = await this.confirm.ask(
-      `Remove ${account.displayName || account.externalAccountId}? Scheduled draft posts will remain, but this LinkedIn profile will no longer be available for publishing.`,
-      'Remove LinkedIn profile',
+      `Remove ${account.displayName || account.externalAccountId}? Scheduled draft posts will remain, but this LinkedIn account will no longer be available for publishing.`,
+      'Remove LinkedIn account',
       'Remove',
     );
     if (!ok) {
@@ -584,12 +699,12 @@ export class LinkedInIntegrations implements OnInit {
     this.busy.set(true);
     this.service.disconnect(account.id).subscribe({
       next: () => {
-        this.notifications.success('LinkedIn profile removed');
+        this.notifications.success('LinkedIn account removed');
         this.busy.set(false);
         this.load(false);
       },
       error: (err) => {
-        this.notifications.error(this.errorMessage(err, 'Could not remove LinkedIn profile'));
+        this.notifications.error(this.errorMessage(err, 'Could not remove LinkedIn account'));
         this.busy.set(false);
       },
     });
@@ -598,7 +713,7 @@ export class LinkedInIntegrations implements OnInit {
   protected async removeApp(config: LinkedInCredentialConfig): Promise<void> {
     this.openAppMenuId.set(null);
     const ok = await this.confirm.ask(
-      `Remove ${config.label || 'this LinkedIn app'}? Connected profiles are not deleted.`,
+      `Remove ${config.label || 'this LinkedIn app'}? Connected accounts are not deleted.`,
       'Remove LinkedIn app',
       'Remove',
     );
@@ -652,8 +767,11 @@ export class LinkedInIntegrations implements OnInit {
       }
       this.busy.set(true);
       this.service.linkedinOAuthCallback(code, state).subscribe({
-        next: () => {
-          this.notifications.success('LinkedIn profile connected');
+        next: (exchange) => {
+          this.setAvailableAccounts(exchange);
+          this.notifications.success(
+            exchange.accounts.length > 1 ? 'Select LinkedIn accounts to connect' : 'LinkedIn account loaded',
+          );
           this.clearQueryParams();
           this.load(false);
           this.busy.set(false);
@@ -693,6 +811,12 @@ export class LinkedInIntegrations implements OnInit {
         this.connectedAccounts.set([]);
         this.loading.set(false);
       });
+  }
+
+  private setAvailableAccounts(exchange: LinkedInExchangeResult): void {
+    this.exchangeId.set(exchange.exchangeId);
+    this.availableAccounts.set(exchange.accounts);
+    this.selectedAccountIds.set(new Set(exchange.accounts.map((account) => account.id)));
   }
 
   private configForAccount(account: SocialIntegration): LinkedInCredentialConfig | null {

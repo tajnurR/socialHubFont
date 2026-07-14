@@ -37,6 +37,7 @@ export enum ApiEndpoint {
   INSTAGRAM_CREDENTIAL_CONFIGS = '/integrations/instagram/credentials/configs',
   LINKEDIN_AUTHORIZATION_URL = '/integrations/linkedin/oauth/authorization-url',
   LINKEDIN_OAUTH_CALLBACK = '/integrations/linkedin/oauth/callback',
+  LINKEDIN_OAUTH_CONNECT_ACCOUNTS = '/integrations/linkedin/connect/accounts',
   LINKEDIN_CREDENTIAL_CONFIGS = '/integrations/linkedin/credentials/configs',
   LINKEDIN_CREDENTIAL_CONFIG_BY_ID = '/integrations/linkedin/credentials/configs/:id',
   FACEBOOK_CREDENTIALS = '/integrations/facebook/credentials',
