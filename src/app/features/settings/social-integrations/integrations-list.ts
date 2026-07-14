@@ -25,6 +25,7 @@ type IntegrationKey =
 type IntegrationAction = 'facebook' | 'instagram' | 'linkedin' | 'google-drive' | 'planned';
 const GOOGLE_DRIVE_GUIDE_URL = '/google_drive_oauth_2026_ui_guide.html';
 const INSTAGRAM_GUIDE_URL = '/instagram_app_setup_instruction_simple.html';
+const LINKEDIN_GUIDE_URL = '/linkedin_app_setup_instruction.html';
 
 interface IntegrationDefinition {
   key: IntegrationKey;
@@ -511,6 +512,13 @@ export class IntegrationsList implements OnInit {
       const guideWindow = window.open(INSTAGRAM_GUIDE_URL, '_blank', 'noopener,noreferrer');
       if (!guideWindow) {
         this.notifications.error('Allow popups for this site to open the Instagram guide.');
+      }
+      return;
+    }
+    if (card.key === 'LINKEDIN') {
+      const guideWindow = window.open(LINKEDIN_GUIDE_URL, '_blank', 'noopener,noreferrer');
+      if (!guideWindow) {
+        this.notifications.error('Allow popups for this site to open the LinkedIn guide.');
       }
       return;
     }

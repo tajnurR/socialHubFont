@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to Connect LinkedIn to Our App</title>
+  <style>
+    :root {
+      --blue: #0a66c2;
+      --blue-dark: #004182;
+      --blue-soft: #eaf4ff;
+      --text: #17202a;
+      --muted: #5f6b7a;
+      --border: #d9e2ec;
+      --white: #ffffff;
+      --green: #13795b;
+      --green-soft: #e9f8f2;
+      --yellow: #9a6700;
+      --yellow-soft: #fff7d6;
+      --red: #b42318;
+      --red-soft: #fff0ee;
+      --shadow: 0 12px 32px rgba(25, 55, 90, 0.10);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--text);
+      line-height: 1.65;
+      background: #f4f7fb;
+    }
+
+    a { color: var(--blue); }
+
+    .wrap {
+      width: min(1040px, calc(100% - 28px));
+      margin: 28px auto 60px;
+    }
+
+    .hero {
+      padding: 48px;
+      border-radius: 24px;
+      color: white;
+      background: linear-gradient(135deg, var(--blue-dark), var(--blue));
+      box-shadow: var(--shadow);
+    }
+
+    .hero h1 {
+      margin: 0 0 12px;
+      max-width: 760px;
+      font-size: clamp(2rem, 5vw, 3.7rem);
+      line-height: 1.08;
+    }
+
+    .hero p {
+      max-width: 760px;
+      margin: 0;
+      color: rgba(255,255,255,.9);
+      font-size: 1.1rem;
+    }
+
+    .important {
+      margin-top: 22px;
+      padding: 15px 18px;
+      border-radius: 12px;
+      background: rgba(255,255,255,.14);
+      border: 1px solid rgba(255,255,255,.30);
+    }
+
+    .quick-list, .step, .finish {
+      margin-top: 22px;
+      padding: 30px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: var(--white);
+      box-shadow: var(--shadow);
+    }
+
+    .quick-list h2, .finish h2 { margin-top: 0; }
+
+    .step-title {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+
+    .num {
+      flex: 0 0 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      color: white;
+      background: var(--blue);
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+
+    h2 {
+      margin: 1px 0 5px;
+      line-height: 1.25;
+    }
+
+    h3 { margin: 24px 0 8px; }
+
+    .muted { color: var(--muted); }
+
+    .path {
+      display: inline-block;
+      margin: 7px 0;
+      padding: 7px 11px;
+      border-radius: 8px;
+      color: #eef7ff;
+      background: #152238;
+      font-family: Consolas, Monaco, monospace;
+      font-size: .92rem;
+    }
+
+    .box {
+      margin: 17px 0;
+      padding: 15px 17px;
+      border-left: 5px solid;
+      border-radius: 10px;
+    }
+
+    .info {
+      border-color: var(--blue);
+      background: var(--blue-soft);
+    }
+
+    .success {
+      border-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .warning {
+      border-color: #d7a000;
+      background: var(--yellow-soft);
+    }
+
+    .danger {
+      border-color: var(--red);
+      background: var(--red-soft);
+    }
+
+    ol, ul { padding-left: 23px; }
+    li + li { margin-top: 8px; }
+
+    table {
+      width: 100%;
+      margin: 16px 0;
+      border-collapse: collapse;
+      border: 1px solid var(--border);
+    }
+
+    th, td {
+      padding: 13px;
+      text-align: left;
+      vertical-align: top;
+      border: 1px solid var(--border);
+    }
+
+    th { background: #eef4fa; }
+
+    code {
+      padding: 2px 6px;
+      border-radius: 5px;
+      color: white;
+      background: #172235;
+      font-family: Consolas, Monaco, monospace;
+      word-break: break-word;
+    }
+
+    .placeholder {
+      display: block;
+      margin: 10px 0;
+      padding: 14px;
+      border: 2px dashed #8fb8df;
+      border-radius: 10px;
+      background: #f7fbff;
+      font-family: Consolas, Monaco, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    .copy-card {
+      padding: 17px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fafcff;
+    }
+
+    .copy-card + .copy-card { margin-top: 12px; }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .check {
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #f8fbfe;
+    }
+
+    .check::before {
+      content: "✓";
+      margin-right: 8px;
+      color: var(--green);
+      font-weight: bold;
+    }
+
+    .footer {
+      padding: 28px 10px;
+      color: var(--muted);
+      text-align: center;
+      font-size: .9rem;
+    }
+
+    @media (max-width: 700px) {
+      .hero, .step, .quick-list, .finish { padding: 23px; }
+      .checklist { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+    }
+
+    @media print {
+      body { background: white; }
+      .wrap { width: 100%; margin: 0; }
+      .hero, .step, .quick-list, .finish { box-shadow: none; }
+      .step { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <h1>How to Connect Your LinkedIn Account to Our App</h1>
+      <p>
+        A simple, non-technical guide for creating a LinkedIn developer app,
+        finding the Client ID and Client Secret, and entering them into our application.
+      </p>
+      <div class="important">
+        <strong>Please do not share your Client Secret publicly.</strong>
+        Only enter it inside the secure LinkedIn settings page of our app.
+      </div>
+    </header>
+
+    <section class="quick-list">
+      <h2>What you need before starting</h2>
+      <div class="checklist">
+        <div class="check">Your personal LinkedIn account</div>
+        <div class="check">A LinkedIn Company Page</div>
+        <div class="check">Permission to manage that Page</div>
+        <div class="check">Our app's Redirect URL</div>
+        <div class="check">A square app logo</div>
+        <div class="check">About 10–15 minutes</div>
+      </div>
+
+      <div class="box info">
+        The LinkedIn Company Page is required only to register the developer app.
+        You can still connect and publish to your <strong>personal LinkedIn profile</strong>.
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-title">
+        <div class="num">1</div>
+        <div>
+          <h2>Sign in to LinkedIn Developers</h2>
+          <div class="muted">Use the same LinkedIn account that will own the developer app.</div>
+        </div>
+      </div>
+
+      <ol>
+        <li>Open your web browser.</li>
+        <li>Visit <a href="https://www.linkedin.com/developers/" target="_blank" rel="noopener">LinkedIn Developers</a>.</li>
+        <li>Click <strong>Sign in</strong>.</li>
+        <li>Enter your normal LinkedIn email and password.</li>
+        <li>After signing in, click <strong>My apps</strong> in the top menu.</li>
+      </ol>
+    </section>
+
+    <section class="step">
+      <div class="step-title">
+        <div class="num">2</div>
+        <div>
+          <h2>Create a LinkedIn Company Page, if you do not have one</h2>
+          <div class="muted">LinkedIn does not allow a personal profile in the “LinkedIn Page” field.</div>
+        </div>
+      </div>
+
+      <ol>
+        <li>On LinkedIn, click the <strong>For Business</strong> menu.</li>
+        <li>Choose <strong>Create a Company Page</strong>.</li>
+        <li>Select the most suitable Page type, usually <strong>Company</strong>.</li>
+        <li>Enter a Page name, such as <strong>Your Business Name</strong> or <strong>Your App Name</strong>.</li>
+        <li>Add a public LinkedIn Page URL.</li>
+        <li>Add a website URL if LinkedIn asks for one.</li>
+        <li>Select an industry, company size, and company type.</li>
+        <li>Upload a logo.</li>
+        <li>Confirm that you are authorized to represent the organization.</li>
+        <li>Click <strong>Create Page</strong>.</li>
+      </ol>
+
+      <div class="box warning">
+        You must be an administrator of the LinkedIn Page. A normal personal-profile URL will not work.
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-title">
+        <div class="num">3</div>
+        <div>
+          <h2>Create the LinkedIn developer app</h2>
+          <div class="muted">This creates the credentials that our app needs.</div>
+        </div>
+      </div>
+
+      <ol>
+        <li>Return to <strong>LinkedIn Developers</strong>.</li>
+        <li>Click <strong>My apps</strong>.</li>
+        <li>Click <strong>Create app</strong>.</li>
+        <li>Complete the form using the table below.</li>
+      </ol>
+
+      <table>
+        <thead>
+          <tr>
+            <th>LinkedIn field</th>
+            <th>What the user should enter</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>App name</strong></td>
+            <td>Enter a clear name, for example <strong>My Social Post Scheduler</strong>.</td>
+          </tr>
+          <tr>
+            <td><strong>LinkedIn Page</strong></td>
+            <td>Search for and select the Company Page created in Step 2.</td>
+          </tr>
+          <tr>
+            <td><strong>Privacy policy URL</strong></td>
+            <td>Enter the privacy-policy URL supplied by our app or your business.</td>
+          </tr>
+          <tr>
+            <td><strong>App logo</strong></td>
+            <td>Upload a clear square logo. LinkedIn recommends at least one dimension of 100 pixels.</td>
+          </tr>
+          <tr>
+            <td><strong>Legal agreement</strong></td>
+            <td>Read the agreement and select the checkbox.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <ol start="5">
+        <li>Click <strong>Create app</strong>.</li>
+        <li>If LinkedIn asks for Page verification, follow the on-screen instructions.</li>
+      </ol>
+    </section>
+
+    <section class="step">
+      <div class="step-title">
+        <div class="num">4</div>
+        <div>
+          <h2>Add the required LinkedIn products</h2>
+          <div class="muted">These products allow login and posting to the personal feed.</div>
+        </div>
+      </div>
+
+      <ol>
+        <li>Open the newly created app.</li>
+        <li>Click the <strong>Products</strong> tab.</li>
+        <li>Find <strong>Sign In with LinkedIn using OpenID Connect</strong>.</li>
+        <li>Click <strong>Request access</strong> or <strong>Add product</strong>.</li>
+        <li>Find <strong>Share on LinkedIn</strong>.</li>
+        <li>Click <strong>Request access</strong> or <strong>Add product</strong>.</li>
+        <li>Wait until the products show as available or approved.</li>
+      </ol>
+
+      <div class="box success">
+        The <strong>Share on LinkedIn</strong> product provides the
+        <code>w_member_social</code> permission used to post on behalf of the connected member.
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-title">
+        <div class="num">5</div>
+        <div>
+          <h2>Add our Redirect URL</h2>
+          <div class="muted">This tells LinkedIn where to return the user after permission is approved.</div>
+        </div>
+      </div>
+
+      <ol>
+        <li>Inside your LinkedIn developer app, click the <strong>Auth</strong> tab.</li>
+        <li>Scroll to <strong>OAuth 2.0 settings</strong>.</li>
+        <li>Find <strong>Authorized redirect URLs for your app</strong>.</li>
+        <li>Click the pencil/edit icon.</li>
+        <li>Copy the Redirect URL shown inside our app's LinkedIn setup page.</li>
+        <li>Paste it into LinkedIn exactly as provided.</li>
+        <li>Click <strong>Update</strong> or <strong>Save</strong>.</li>
+      </ol>
+
+      <h3>Redirect URL supplied by our app</h3>
+      <span class="placeholder">PASTE YOUR REAL APP REDIRECT URL HERE</span>
+
+      <div class="box danger">
+        The Redirect URL must match exactly. Do not add or remove <code>https://</code>,
+        a port number, a slash, or any part of the path.
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-title">
+        <div class="num">6</div>
+        <div>
+          <h2>Copy the Client ID</h2>
+          <div class="muted">The Client ID identifies the LinkedIn developer app.</div>
+        </div>
+      </div>
+
+      <ol>
+        <li>Stay on the <strong>Auth</strong> tab.</li>
+        <li>Find the section named <strong>Application credentials</strong> or <strong>Authentication keys</strong>.</li>
+        <li>Find <strong>Client ID</strong>.</li>
+        <li>Click the copy icon, or carefully select and copy the value.</li>
+        <li>Return to our app.</li>
+        <li>Open <strong>Settings → LinkedIn Integration</strong>.</li>
+        <li>Paste it into the <strong>LinkedIn Client ID</strong> field.</li>
+      </ol>
+
+      <div class="copy-card">
+        <strong>Example only:</strong><br>
+        <code>78abc123xyz456</code>
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-title">
+        <div class="num">7</div>
+        <div>
+          <h2>Reveal and copy the Client Secret</h2>
+          <div class="muted">This is the secret code that proves the app is genuine.</div>
+        </div>
+      </div>
+
+      <ol>
+        <li>On the same <strong>Auth</strong> page, find <strong>Primary Client Secret</strong> or <strong>Client Secret</strong>.</li>
+        <li>Click <strong>Show</strong> or the eye icon.</li>
+        <li>LinkedIn may ask you to enter your LinkedIn password again.</li>
+        <li>Copy the complete Client Secret.</li>
+        <li>Return to our app.</li>
+        <li>Paste it into the <strong>LinkedIn Client Secret</strong> field.</li>
+        <li>Click <strong>Save LinkedIn Settings</strong>.</li>
+      </ol>
+
+      <div class="box danger">
+        <strong>Never send the Client Secret by email, WhatsApp, screenshot, or public chat.</strong>
+        Do not put it in a public GitHub repository. Treat it like a password.
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-title">
+        <div class="num">8</div>
+        <div>
+          <h2>Connect the personal LinkedIn profile</h2>
+          <div class="muted">Creating the developer app does not connect the personal profile automatically.</div>
+        </div>
+      </div>
+
+      <ol>
+        <li>In our app, open <strong>Settings → Social Accounts</strong>.</li>
+        <li>Click <strong>Connect LinkedIn</strong>.</li>
+        <li>You will be sent to LinkedIn.</li>
+        <li>Sign in if LinkedIn asks you to sign in.</li>
+        <li>Review the requested permissions.</li>
+        <li>Click <strong>Allow</strong>.</li>
+        <li>LinkedIn will return you to our app.</li>
+        <li>Confirm that the LinkedIn account shows as <strong>Connected</strong>.</li>
+      </ol>
+
+      <div class="box info">
+        The user should never type their LinkedIn password inside our app.
+        The password is entered only on LinkedIn's own website.
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-title">
+        <div class="num">9</div>
+        <div>
+          <h2>Create and schedule the first LinkedIn post</h2>
+          <div class="muted">Use a small test post before scheduling important content.</div>
+        </div>
+      </div>
+
+      <ol>
+        <li>Open the post composer in our app.</li>
+        <li>Select the connected LinkedIn account.</li>
+        <li>Write a short test message.</li>
+        <li>Select <strong>Post now</strong> for the first test.</li>
+        <li>Confirm that the post appears on the personal LinkedIn profile.</li>
+        <li>Create another post and choose <strong>Schedule</strong>.</li>
+        <li>Select the correct date, time, and timezone.</li>
+        <li>Click <strong>Schedule post</strong>.</li>
+      </ol>
+    </section>
+
+    <section class="finish">
+      <h2>Information the user must provide to our app</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Required item</th>
+            <th>Where it is found</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Client ID</td>
+            <td>LinkedIn Developer App → Auth</td>
+          </tr>
+          <tr>
+            <td>Client Secret</td>
+            <td>LinkedIn Developer App → Auth → reveal secret</td>
+          </tr>
+          <tr>
+            <td>Redirect URL</td>
+            <td>Copied from our app and pasted into LinkedIn</td>
+          </tr>
+          <tr>
+            <td>Permission approval</td>
+            <td>Granted after clicking Connect LinkedIn</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="box success">
+        Setup is complete when the LinkedIn profile is shown as connected and a test post
+        can be published successfully.
+      </div>
+    </section>
+
+    <footer class="footer">
+      LinkedIn menus and button names may change slightly. Always use LinkedIn's official
+      Developer Portal and never share the Client Secret outside the secure setup form.
+    </footer>
+  </div>
+</body>
+</html>

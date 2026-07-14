@@ -14,6 +14,7 @@ import {
 import { SocialIntegrationsService } from './social-integrations.service';
 
 const LINKEDIN_SCOPES = 'openid profile email w_member_social';
+const LINKEDIN_GUIDE_URL = '/linkedin_app_setup_instruction.html';
 
 interface LinkedInOAuthMessage {
   type: 'linkedin-oauth';
@@ -33,12 +34,21 @@ interface LinkedInOAuthMessage {
           title="LinkedIn Connection"
           subtitle="Manage LinkedIn app credentials before connecting your personal profile"
         />
-        <a
-          routerLink="/settings/social-integrations"
-          class="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
-        >
-          Back
-        </a>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            class="inline-flex w-full items-center justify-center rounded-lg border border-sky-200 bg-white px-4 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 sm:w-auto"
+            (click)="openSetupGuide()"
+          >
+            How to connect
+          </button>
+          <a
+            routerLink="/settings/social-integrations"
+            class="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
+          >
+            Back
+          </a>
+        </div>
       </div>
 
       @if (!showForm()) {
@@ -611,6 +621,13 @@ export class LinkedInIntegrations implements OnInit {
 
   protected defaultRedirectUri(): string {
     return `${window.location.origin}/settings/social-integrations/linkedin`;
+  }
+
+  protected openSetupGuide(): void {
+    const guideWindow = window.open(LINKEDIN_GUIDE_URL, '_blank', 'noopener,noreferrer');
+    if (!guideWindow) {
+      this.notifications.error('Allow popups for this site to open the LinkedIn guide.');
+    }
   }
 
   private handleOAuthReturn(): boolean {
