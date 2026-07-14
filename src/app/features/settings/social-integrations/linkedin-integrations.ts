@@ -74,24 +74,6 @@ interface LinkedInOAuthMessage {
               >
                 Add LinkedIn app
               </button>
-              <div class="flex flex-col gap-2 sm:flex-row">
-                <button
-                  type="button"
-                  class="rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:opacity-60"
-                  [disabled]="busy() || !configs().length"
-                  (click)="connectPrimaryApp('PERSONAL')"
-                >
-                  {{ busy() ? 'Opening...' : 'Connect profile' }}
-                </button>
-                <button
-                  type="button"
-                  class="rounded-lg border border-sky-200 bg-white px-4 py-2.5 text-sm font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-60"
-                  [disabled]="busy() || !configs().length"
-                  (click)="connectPrimaryApp('COMPANY')"
-                >
-                  Connect company Page
-                </button>
-              </div>
             </div>
           </div>
         </section>
@@ -255,13 +237,17 @@ interface LinkedInOAuthMessage {
                       <button
                         type="button"
                         class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-lg leading-none text-slate-500 hover:bg-white"
-                        (click)="toggleAppMenu(config.id)"
+                        (click)="toggleAppMenu(config.id, $event)"
                         aria-label="Open app actions"
                       >
                         ...
                       </button>
                       @if (openAppMenuId() === config.id) {
-                        <div class="absolute right-5 top-12 z-20 w-56 rounded-xl border border-slate-200 bg-white p-1 text-left shadow-lg">
+                        <div
+                          class="fixed z-50 w-56 rounded-xl border border-slate-200 bg-white p-1 text-left shadow-lg"
+                          [style.left.px]="menuPosition()?.left"
+                          [style.top.px]="menuPosition()?.top"
+                        >
                           <button
                             type="button"
                             class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
@@ -423,13 +409,17 @@ interface LinkedInOAuthMessage {
                       <button
                         type="button"
                         class="rounded-lg border border-slate-200 px-2.5 py-1.5 text-lg leading-none text-slate-500 hover:bg-white"
-                        (click)="toggleProfileMenu(account.id)"
+                        (click)="toggleProfileMenu(account.id, $event)"
                         aria-label="Open profile actions"
                       >
                         ...
                       </button>
                       @if (openProfileMenuId() === account.id) {
-                        <div class="absolute right-5 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white p-1 text-left shadow-lg">
+                        <div
+                          class="fixed z-50 w-44 rounded-xl border border-slate-200 bg-white p-1 text-left shadow-lg"
+                          [style.left.px]="menuPosition()?.left"
+                          [style.top.px]="menuPosition()?.top"
+                        >
                           <button
                             type="button"
                             class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
@@ -488,6 +478,7 @@ export class LinkedInIntegrations implements OnInit {
   protected readonly editingId = signal<number | null>(null);
   protected readonly openAppMenuId = signal<number | null>(null);
   protected readonly openProfileMenuId = signal<number | null>(null);
+  protected readonly menuPosition = signal<{ left: number; top: number } | null>(null);
   protected readonly exchangeId = signal<string | null>(null);
   protected readonly availableAccounts = signal<LinkedInAccountOption[]>([]);
   protected readonly selectedAccountIds = signal<Set<string>>(new Set());
@@ -598,12 +589,26 @@ export class LinkedInIntegrations implements OnInit {
     return this.connectedAccounts().some((account) => account.appCredentialId === config.id);
   }
 
-  protected toggleAppMenu(id: number): void {
+  protected toggleAppMenu(id: number, event: MouseEvent): void {
+    event.stopPropagation();
     this.openAppMenuId.update((current) => (current === id ? null : id));
+    this.openProfileMenuId.set(null);
+    if (this.openAppMenuId() === id) {
+      this.menuPosition.set(this.dropdownPosition(event, 224));
+    } else {
+      this.menuPosition.set(null);
+    }
   }
 
-  protected toggleProfileMenu(id: number): void {
+  protected toggleProfileMenu(id: number, event: MouseEvent): void {
+    event.stopPropagation();
     this.openProfileMenuId.update((current) => (current === id ? null : id));
+    this.openAppMenuId.set(null);
+    if (this.openProfileMenuId() === id) {
+      this.menuPosition.set(this.dropdownPosition(event, 176));
+    } else {
+      this.menuPosition.set(null);
+    }
   }
 
   protected connectPrimaryApp(connectionType: LinkedInConnectionType = 'PERSONAL'): void {
@@ -656,6 +661,7 @@ export class LinkedInIntegrations implements OnInit {
 
   protected reconnectAccount(account: SocialIntegration): void {
     this.openProfileMenuId.set(null);
+    this.menuPosition.set(null);
     const config = this.configForAccount(account);
     if (!config) {
       this.notifications.error('No LinkedIn app is available to reconnect this account.');
@@ -722,6 +728,7 @@ export class LinkedInIntegrations implements OnInit {
 
   protected async removeAccount(account: SocialIntegration): Promise<void> {
     this.openProfileMenuId.set(null);
+    this.menuPosition.set(null);
     const ok = await this.confirm.ask(
       `Remove ${account.displayName || account.externalAccountId}? Scheduled draft posts will remain, but this LinkedIn account will no longer be available for publishing.`,
       'Remove LinkedIn account',
@@ -746,6 +753,7 @@ export class LinkedInIntegrations implements OnInit {
 
   protected async removeApp(config: LinkedInCredentialConfig): Promise<void> {
     this.openAppMenuId.set(null);
+    this.menuPosition.set(null);
     const ok = await this.confirm.ask(
       `Remove ${config.label || 'this LinkedIn app'}? Connected accounts are not deleted.`,
       'Remove LinkedIn app',
@@ -878,6 +886,16 @@ export class LinkedInIntegrations implements OnInit {
       return this.configs().find((config) => config.id === account.appCredentialId) ?? null;
     }
     return this.configs()[0] ?? null;
+  }
+
+  private dropdownPosition(event: MouseEvent, width: number): { left: number; top: number } {
+    const button = event.currentTarget as HTMLElement;
+    const rect = button.getBoundingClientRect();
+    const padding = 12;
+    return {
+      left: Math.max(padding, Math.min(rect.right - width, window.innerWidth - width - padding)),
+      top: rect.bottom + 8,
+    };
   }
 
   private clearQueryParams(): void {
