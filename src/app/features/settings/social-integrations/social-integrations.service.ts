@@ -176,10 +176,12 @@ export class SocialIntegrationsService {
   linkedinAuthorizationUrl(
     redirectUri: string,
     configId?: number,
+    connectionType: 'PERSONAL' | 'COMPANY' = 'PERSONAL',
   ): Observable<LinkedInAuthorizationUrl> {
     return this.api.post<LinkedInAuthorizationUrl>(ApiEndpoint.LINKEDIN_AUTHORIZATION_URL, {
       redirectUri,
       configId,
+      connectionType,
     });
   }
 

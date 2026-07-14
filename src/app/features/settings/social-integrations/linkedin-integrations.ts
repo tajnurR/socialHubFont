@@ -15,9 +15,9 @@ import {
 } from '../../../shared/models/social-integration.model';
 import { SocialIntegrationsService } from './social-integrations.service';
 
-const LINKEDIN_SCOPES =
-  'openid profile email w_member_social r_organization_admin w_organization_social';
+const LINKEDIN_SCOPES = 'openid profile email w_member_social';
 const LINKEDIN_GUIDE_URL = '/linkedin_app_setup_instruction.html';
+type LinkedInConnectionType = 'PERSONAL' | 'COMPANY';
 
 interface LinkedInOAuthMessage {
   type: 'linkedin-oauth';
@@ -74,14 +74,24 @@ interface LinkedInOAuthMessage {
               >
                 Add LinkedIn app
               </button>
-              <button
-                type="button"
-                class="rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:opacity-60"
-                [disabled]="busy() || !configs().length"
-                (click)="connectPrimaryApp()"
-              >
-                {{ busy() ? 'Opening...' : 'Connect LinkedIn' }}
-              </button>
+              <div class="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  class="rounded-lg bg-sky-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-sky-800 disabled:opacity-60"
+                  [disabled]="busy() || !configs().length"
+                  (click)="connectPrimaryApp('PERSONAL')"
+                >
+                  {{ busy() ? 'Opening...' : 'Connect profile' }}
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg border border-sky-200 bg-white px-4 py-2.5 text-sm font-semibold text-sky-700 hover:bg-sky-50 disabled:opacity-60"
+                  [disabled]="busy() || !configs().length"
+                  (click)="connectPrimaryApp('COMPANY')"
+                >
+                  Connect company Page
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -251,15 +261,24 @@ interface LinkedInOAuthMessage {
                         ...
                       </button>
                       @if (openAppMenuId() === config.id) {
-                        <div class="absolute right-5 top-12 z-20 w-44 rounded-xl border border-slate-200 bg-white p-1 text-left shadow-lg">
+                        <div class="absolute right-5 top-12 z-20 w-56 rounded-xl border border-slate-200 bg-white p-1 text-left shadow-lg">
                           <button
                             type="button"
                             class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                             [disabled]="busy()"
-                            (click)="startLinkedInLogin(config)"
+                            (click)="startLinkedInLogin(config, 'PERSONAL')"
                           >
                             <span class="text-xs">↗</span>
-                            Connect accounts
+                            Connect profile
+                          </button>
+                          <button
+                            type="button"
+                            class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                            [disabled]="busy()"
+                            (click)="startLinkedInLogin(config, 'COMPANY')"
+                          >
+                            <span class="text-xs">▣</span>
+                            Connect company Page
                           </button>
                           <button
                             type="button"
@@ -587,16 +606,19 @@ export class LinkedInIntegrations implements OnInit {
     this.openProfileMenuId.update((current) => (current === id ? null : id));
   }
 
-  protected connectPrimaryApp(): void {
+  protected connectPrimaryApp(connectionType: LinkedInConnectionType = 'PERSONAL'): void {
     const config = this.configs()[0];
     if (!config) {
       this.openCreateForm();
       return;
     }
-    void this.startLinkedInLogin(config);
+    void this.startLinkedInLogin(config, connectionType);
   }
 
-  protected async startLinkedInLogin(config: LinkedInCredentialConfig): Promise<void> {
+  protected async startLinkedInLogin(
+    config: LinkedInCredentialConfig,
+    connectionType: LinkedInConnectionType = 'PERSONAL',
+  ): Promise<void> {
     this.openAppMenuId.set(null);
     this.busy.set(true);
     const popup = this.openBlankPopup();
@@ -608,10 +630,18 @@ export class LinkedInIntegrations implements OnInit {
 
     try {
       const response = await firstValueFrom(
-        this.service.linkedinAuthorizationUrl(this.defaultRedirectUri(), config.id),
+        this.service.linkedinAuthorizationUrl(this.defaultRedirectUri(), config.id, connectionType),
       );
       const result = await this.waitForOAuthPopup(popup, response.authorizationUrl);
       const exchange = await firstValueFrom(this.service.linkedinOAuthCallback(result.code, result.state));
+      if (connectionType === 'PERSONAL' && exchange.accounts.length === 1) {
+        await firstValueFrom(
+          this.service.linkedinConnectAccounts(exchange.exchangeId, [exchange.accounts[0].id]),
+        );
+        this.notifications.success('LinkedIn profile connected');
+        this.load(false);
+        return;
+      }
       this.setAvailableAccounts(exchange);
       this.notifications.success(
         exchange.accounts.length > 1 ? 'Select LinkedIn accounts to connect' : 'LinkedIn account loaded',
@@ -631,11 +661,15 @@ export class LinkedInIntegrations implements OnInit {
       this.notifications.error('No LinkedIn app is available to reconnect this account.');
       return;
     }
-    void this.startLinkedInLogin(config);
+    void this.startLinkedInLogin(config, this.connectionTypeForAccount(account));
   }
 
   protected updateAccount(account: SocialIntegration): void {
     this.reconnectAccount(account);
+  }
+
+  protected connectionTypeForAccount(account: SocialIntegration): LinkedInConnectionType {
+    return account.externalAccountId?.startsWith('urn:li:organization') ? 'COMPANY' : 'PERSONAL';
   }
 
   protected accountTypeLabel(account: LinkedInAccountOption): string {
@@ -768,6 +802,26 @@ export class LinkedInIntegrations implements OnInit {
       this.busy.set(true);
       this.service.linkedinOAuthCallback(code, state).subscribe({
         next: (exchange) => {
+          if (
+            exchange.accounts.length === 1 &&
+            exchange.accounts[0].accountType === 'PERSONAL'
+          ) {
+            this.service.linkedinConnectAccounts(exchange.exchangeId, [exchange.accounts[0].id]).subscribe({
+              next: () => {
+                this.notifications.success('LinkedIn profile connected');
+                this.clearQueryParams();
+                this.load(false);
+                this.busy.set(false);
+              },
+              error: (err) => {
+                this.notifications.error(this.errorMessage(err, 'Could not connect LinkedIn profile'));
+                this.clearQueryParams();
+                this.load();
+                this.busy.set(false);
+              },
+            });
+            return;
+          }
           this.setAvailableAccounts(exchange);
           this.notifications.success(
             exchange.accounts.length > 1 ? 'Select LinkedIn accounts to connect' : 'LinkedIn account loaded',
